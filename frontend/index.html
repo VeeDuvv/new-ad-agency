@@ -6,10 +6,9 @@
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“Now when you click on any dot or block in our map, a window on the right 
-magically shows you all the secret info about that step—like who does it, 
-what tools they use, and how long it takes. It’s like clicking on a LEGO part 
-and seeing its instructions!”
+“Now our map has a big title block at the top showing the name of your toy set 
+(like ‘Investor Relations’). It’s like the cover of your LEGO set box, so you 
+always know which plan you’re looking at. Then all the steps hang down below it.”
 -->
 
 <!DOCTYPE html>
@@ -94,7 +93,7 @@ and seeing its instructions!”
     </div>
 
     <script>
-        let nodeDetails = {};  // will hold full objects by node id
+        let nodeDetails = {};  // holds full objects by node id
 
         document.getElementById('runBtn').onclick = async () => {
             const fn = document.getElementById('fnName').value.trim();
@@ -113,17 +112,28 @@ and seeing its instructions!”
 
             const data = await res.json();
             document.getElementById('result').value = JSON.stringify(data, null, 2);
-            buildGraph(data);
+            buildGraph(data, fn);
         };
 
-        function buildGraph(data) {
+        function buildGraph(data, functionName) {
             const nodes = [];
             const edges = [];
             nodeDetails = {};  // reset
 
+            // 1. Add root node for the function name
+            const rootId = 'root';
+            nodes.push({
+                id: rootId,
+                label: functionName,
+                group: 'root'
+            });
+            nodeDetails[rootId] = { name: functionName, type: 'function' };
+
+            // 2. Add processes, activities, tasks
             data.processes.forEach((proc, pIdx) => {
                 const pid = `proc${pIdx}`;
                 nodes.push({ id: pid, label: proc.name, group: 'process' });
+                edges.push({ from: rootId, to: pid });
                 nodeDetails[pid] = proc;
 
                 proc.activities.forEach((act, aIdx) => {
@@ -141,29 +151,27 @@ and seeing its instructions!”
                 });
             });
 
+            // 3. Render with vis-network
             const container = document.getElementById('network');
-            const visData = {
-                nodes: new vis.DataSet(nodes),
-                edges: new vis.DataSet(edges)
-            };
+            const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
                 groups: {
+                    root: { color: { background: '#FFA500' }, shape: 'box', font: { size: 24 } },
                     process: { color: { background: '#FFD700' }, shape: 'box' },
                     activity: { color: { background: '#87CEFA' }, shape: 'ellipse' },
                     task: { color: { background: '#90EE90' }, shape: 'dot' }
                 },
                 layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
                 physics: false,
-                interaction: { hover: true, multiselect: false }
+                interaction: { hover: true }
             };
             const network = new vis.Network(container, visData, options);
 
-            // When a node is selected, show its details
+            // 4. Show details on click
             network.on("selectNode", params => {
                 const id = params.nodes[0];
                 const info = nodeDetails[id] || { error: "No details available" };
-                document.getElementById('detailsContent').textContent =
-                    JSON.stringify(info, null, 2);
+                document.getElementById('detailsContent').textContent = JSON.stringify(info, null, 2);
             });
         }
     </script>

@@ -7,6 +7,21 @@
 # Description:
 #   Centralized OpenAI client wrapper with retry logic
 #
+# Imagine you and your friends all need to call the same super-smart robot (OpenAI) to help with different jobs—one friend writes ad copy, another picks the best bids, another builds reports. Instead of each friend figuring out their own way to dial the robot’s phone number (and what to do if the call drops), you give everyone a single “phone” that already knows the number and will automatically redial if the line cuts out.
+
+# Here’s why that’s awesome:
+
+# One Phone to Rule Them All (Centralized)
+# You only have to teach this one phone how to talk to the robot.
+# Every helper (agent) uses the same phone, so calls are always made the same way—no confusion.
+# Automatic Redials (Retry-Enabled)
+# If the line goes dead or the robot is busy, the phone will try again on its own.
+# Your agents don’t get stuck waiting or crash—they just keep trying until they get an answer or decide it really won’t work.
+# Powering All Your Helpers
+# Instead of copying robot-calling code everywhere, every agent just picks up this shared phone.
+# That makes your project simpler: one file to update if the robot’s number or language changes.
+# In the bigger picture of building an AI-native ad agency, this “centralized, retry-enabled OpenAI client” is like your trusty control panel. It guarantees that no matter which tiny AI helper you build—whether it drafts ads, optimizes bids, or writes reports—they all talk to the robot brain the right way and handle hiccups gracefully, so your whole agency runs smoothly.
+
 # Responsibilities:
 #   - Load environment variables (OPENAI_API_KEY) via python-dotenv
 #   - Instantiate the OpenAI client once
@@ -17,6 +32,7 @@
 #   - Define and manage default model names and parameters
 #   - Consistent error handling (catch OpenAIError)
 #   - Simplify API usage for all downstream agents
+
 from dotenv import load_dotenv
 load_dotenv()  # load OPENAI_API_KEY into environment
 

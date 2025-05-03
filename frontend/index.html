@@ -1,18 +1,16 @@
 <!--
-SPDX-License-Identifier: MIT
-Copyright (c) 2025 Vamsi Duvvuri
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Vamsi Duvvuri
 
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“This is the big control panel for our Blueprint Maker. On the left you can type
-in the name of the thing you want to break down (like ‘make ads’) and click the
-‘Decompose’ button. The page shows you two ways to see the plan: a hidden block
-you can open to read the raw steps in JSON, and a colorful map in the middle
-where each box or dot is a step you can click. When you click a step, the right
-panel tells you all the details—like who does it, what tools they use, and how
-long it takes. And while it’s thinking, the button takes a nap so you don’t
-press it twice by accident!”
+“This is our magic webpage. First, you type the name of the big job 
+(like ‘Media Buying & Execution’). Then you choose which rulebook 
+(APQC or eTOM) you want to follow—just two simple radio buttons. 
+Click ‘Decompose’ and watch the plan appear below as a hidden JSON 
+note, a colorful map of blocks and dots, and when you click any block, 
+the panel on the right tells you all the juicy details!”
 -->
 
 <!DOCTYPE html>
@@ -51,11 +49,7 @@ press it twice by accident!”
         button {
             font-size: 1rem;
             padding: 0.5rem;
-            margin-right: 0.5rem;
-        }
-
-        details {
-            margin-top: 1rem;
+            margin: 0.25rem 0;
         }
 
         textarea {
@@ -73,24 +67,28 @@ press it twice by accident!”
 </head>
 
 <body>
-    <!-- Left panel: controls + raw JSON -->
     <div id="controls">
         <h1>Blueprint Maker</h1>
         <p>
             <label for="fnName">Enter function name:</label><br />
             <input type="text" id="fnName" placeholder="e.g. Creative Development" style="width:100%;" />
-            <button id="runBtn">Decompose</button>
         </p>
-        <details>
+        <p>
+            <label>Choose framework:</label><br />
+            <input type="radio" id="apqc" name="framework" value="APQC" checked>
+            <label for="apqc">APQC</label><br />
+            <input type="radio" id="etom" name="framework" value="eTOM">
+            <label for="etom">eTOM</label>
+        </p>
+        <button id="runBtn">Decompose</button>
+        <details style="margin-top:1rem;">
             <summary>Show Raw JSON</summary>
             <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
         </details>
     </div>
 
-    <!-- Center panel: graph -->
     <div id="network"></div>
 
-    <!-- Right panel: details -->
     <div id="details">
         <h2>Node Details</h2>
         <pre id="detailsContent">Click a node to see details</pre>
@@ -101,20 +99,18 @@ press it twice by accident!”
 
         document.getElementById('runBtn').onclick = async () => {
             const btn = document.getElementById('runBtn');
-            btn.disabled = true;  // prevent double-clicks
+            btn.disabled = true;
 
             const fn = document.getElementById('fnName').value.trim();
-            if (!fn) {
-                alert('Please enter a function name.');
-                btn.disabled = false;
-                return;
-            }
+            if (!fn) { alert('Please enter a function name.'); btn.disabled = false; return; }
+
+            const framework = document.querySelector('input[name="framework"]:checked').value;
 
             try {
                 const res = await fetch('/decompose', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ function_name: fn })
+                    body: JSON.stringify({ function_name: fn, framework })
                 });
 
                 if (!res.ok) {
@@ -127,37 +123,43 @@ press it twice by accident!”
             } catch (err) {
                 document.getElementById('result').value = 'Fetch error: ' + err;
             } finally {
-                btn.disabled = false;  // re-enable when done
+                btn.disabled = false;
             }
         };
 
         function buildGraph(data, functionName) {
-            const nodes = [];
-            const edges = [];
+            const nodes = [], edges = [];
             nodeDetails = {};
 
-            // root node for the function name
             const rootId = 'root';
             nodes.push({ id: rootId, label: functionName, group: 'root' });
             nodeDetails[rootId] = { name: functionName, type: 'function' };
 
-            data.processes.forEach((proc, pIdx) => {
-                const pid = `proc${pIdx}`;
+            data.levels.L1.forEach((proc, i) => {
+                const pid = `L1-${i}`;
                 nodes.push({ id: pid, label: proc.name, group: 'process' });
                 edges.push({ from: rootId, to: pid });
                 nodeDetails[pid] = proc;
 
-                proc.activities.forEach((act, aIdx) => {
-                    const aid = `${pid}act${aIdx}`;
+                // L2, L3, L4 nested (assuming the JSON structure matches)
+                proc.subitems && proc.subitems.forEach((act, j) => {
+                    const aid = `${pid}-L2-${j}`;
                     nodes.push({ id: aid, label: act.name, group: 'activity' });
                     edges.push({ from: pid, to: aid });
                     nodeDetails[aid] = act;
 
-                    act.tasks.forEach((task, tIdx) => {
-                        const tid = `${aid}task${tIdx}`;
+                    act.subitems && act.subitems.forEach((task, k) => {
+                        const tid = `${aid}-L3-${k}`;
                         nodes.push({ id: tid, label: task.name, group: 'task' });
                         edges.push({ from: aid, to: tid });
                         nodeDetails[tid] = task;
+
+                        task.subitems && task.subitems.forEach((sub, m) => {
+                            const sid = `${tid}-L4-${m}`;
+                            nodes.push({ id: sid, label: sub.name, group: 'subtask' });
+                            edges.push({ from: tid, to: sid });
+                            nodeDetails[sid] = sub;
+                        });
                     });
                 });
             });
@@ -166,10 +168,11 @@ press it twice by accident!”
             const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
                 groups: {
-                    root: { color: { background: '#FFA500' }, shape: 'box', font: { size: 24 } },
-                    process: { color: { background: '#FFD700' }, shape: 'box' },
-                    activity: { color: { background: '#87CEFA' }, shape: 'ellipse' },
-                    task: { color: { background: '#90EE90' }, shape: 'dot' }
+                    root: { color: '#FFA500', shape: 'box', font: { size: 24 } },
+                    process: { color: '#FFD700', shape: 'box' },
+                    activity: { color: '#87CEFA', shape: 'ellipse' },
+                    task: { color: '#90EE90', shape: 'dot' },
+                    subtask: { color: '#D8BFD8', shape: 'triangle' }
                 },
                 layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
                 physics: false,
@@ -180,8 +183,7 @@ press it twice by accident!”
             network.on("selectNode", params => {
                 const id = params.nodes[0];
                 const info = nodeDetails[id] || { error: "No details available" };
-                document.getElementById('detailsContent').textContent =
-                    JSON.stringify(info, null, 2);
+                document.getElementById('detailsContent').textContent = JSON.stringify(info, null, 2);
             });
         }
     </script>

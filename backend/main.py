@@ -14,34 +14,45 @@ the door in JSON format!”
 """
 
 from typing import List
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from agents.factory import get_agent
+from backend.agents.factory import get_agent
 
 import uvicorn
-
-from backend.agents.openai.func_decomp_agent import FuncArchAgent
-from backend.agents.openai.micro_decomp_agent import MicroDecompAgent
 
 load_dotenv()  # load OPENAI_API_KEY
 
 app = FastAPI(title="Blueprint Maker API")
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s"
+)
+logger = logging.getLogger("blueprint_maker")
 class AgentRequest(BaseModel):
     agent: str
     payload: dict
 
 @app.post("/api/agent")
 def call_agent(req: AgentRequest):
+    logger.debug("Received /api/agent request: agent=%s payload=%s", req.agent, req.payload)
     try:
         agent = get_agent(req.agent)
     except KeyError:
-        raise HTTPException(404, f"No such agent: {req.agent}")
+        logger.error("No such agent registered: %s", req.agent)
+        raise HTTPException(status_code=404, detail=f"No such agent: {req.agent}")
 
-    result = agent.run(req.payload)
+    try:
+        result = agent.run(req.payload)
+        logger.debug("Agent %s returned: %s", req.agent, result)
+    except Exception as e:
+        logger.exception("Agent %s raised exception", req.agent)
+        raise HTTPException(status_code=500, detail=str(e))
+
     return {"result": result}
 
 # ——— Static files (UI) ———

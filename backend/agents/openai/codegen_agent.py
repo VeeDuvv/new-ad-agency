@@ -14,9 +14,10 @@ know exactly what code to run next!”
 import re
 import json
 from typing import Any, Dict
-from backend.agents.base import Agent
-from backend.utils.openai_client import chat_completion
-
+from ..base import Agent
+from ...utils.openai_client import chat_completion
+import logging
+logger = logging.getLogger("blueprint_maker.codegen")
 class CodeGenAgent(Agent):
     """
     Code Generation Agent:
@@ -25,6 +26,7 @@ class CodeGenAgent(Agent):
     """
 
     def run(self, payload: Dict[str, Any]) -> Dict[str, str]:
+        logger.debug("CodeGenAgent.run: payload: %s", payload)
         """
         :param payload: {
             "name": str,
@@ -57,7 +59,7 @@ class CodeGenAgent(Agent):
         # Strip Markdown fences if present
         code = re.sub(r"^```(?:python)?\s*", "", code)
         code = re.sub(r"\s*```$", "", code)
-
+        logger.debug("CodeGenAgent.run: code: %s", code)
         return {"code": code}
 
 # Self-test (optional)

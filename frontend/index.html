@@ -54,6 +54,12 @@ you clicked!”
             overflow-y: auto;
         }
 
+        #codegenResult {
+            font-family: monospace;
+            max-height: 30vh;
+            overflow-y: auto;
+        }
+
         input,
         button {
             font-size: 1rem;
@@ -152,32 +158,35 @@ you clicked!”
         <div id="detailsContent">Click a node to see details</div>
         <button id="drillBtn" disabled style="margin-top:1em;">Drill Down</button>
         <div id="drillResults" style="margin-top:1em; font-size:0.9rem;"></div>
+        <!-- CodeGen controls -->
+        <button id="codegenBtn" disabled style="margin-top:1em;">Generate Code</button>
+        <pre id="codegenResult" style="margin-top:1em; background:#f7f7f7; padding:0.5rem;"></pre>
     </div>
 
     <script>
-        let nodeDetails = {};
-        let currentFocus = null;
+        let nodeDetails = {}, currentFocus = null;
 
-        // Decompose button handler
+        // Decompose via unified dispatcher
         document.getElementById('runBtn').onclick = async () => {
             const btn = document.getElementById('runBtn');
             btn.disabled = true;
             const fn = document.getElementById('fnName').value.trim();
             if (!fn) { alert('Please enter a function name.'); btn.disabled = false; return; }
             const framework = document.querySelector('input[name="framework"]:checked').value;
+
             try {
-                const res = await fetch('/decompose', {
+                const response = await fetch('/api/agent', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ function_name: fn, framework })
+                    body: JSON.stringify({
+                        agent: 'func_decomp',
+                        payload: { function_name: fn, framework }
+                    })
                 });
-                if (!res.ok) {
-                    document.getElementById('result').value = 'Error: ' + res.statusText;
-                } else {
-                    const data = await res.json();
-                    document.getElementById('result').value = JSON.stringify(data, null, 2);
-                    buildGraph(data, fn);
-                }
+
+                const { result } = await response.json();
+                document.getElementById('result').value = JSON.stringify(result, null, 2);
+                buildGraph(result, fn);
             } catch (err) {
                 document.getElementById('result').value = 'Fetch error: ' + err;
             } finally {
@@ -185,29 +194,20 @@ you clicked!”
             }
         };
 
-        // Build the graph
+        // Build the graph (unchanged)
         function buildGraph(data, functionName) {
-            nodeDetails = {};
-            currentFocus = null;
+            nodeDetails = {}; currentFocus = null;
             const nodes = [], edges = [];
 
-            // L0 root node
             const rootId = 'root';
             nodes.push({ id: rootId, label: functionName, group: 'root' });
             nodeDetails[rootId] = { name: functionName, type: 'Function' };
 
-            // Recursive helper for L1–L4
-            function recurse(parentId, items, level) {
-                items.forEach((item, idx) => {
-                    const id = `${parentId}-${level}-${idx}`;
-                    const group = level === 'L1'
-                        ? 'process'
-                        : level === 'L2'
-                            ? 'activity'
-                            : level === 'L3'
-                                ? 'task'
-                                : 'subtask';
-                    nodes.push({ id, label: item.name, group });
+            function recurse(parentId, items, lvl) {
+                items.forEach((item, i) => {
+                    const id = `${parentId}-${lvl}-${i}`;
+                    const grp = lvl === 'L1' ? 'process' : lvl === 'L2' ? 'activity' : lvl === 'L3' ? 'task' : 'subtask';
+                    nodes.push({ id, label: item.name, group: grp });
                     edges.push({ from: parentId, to: id });
                     nodeDetails[id] = {
                         name: item.name,
@@ -215,18 +215,13 @@ you clicked!”
                         tools: item.tools,
                         deliverable: item.deliverable,
                         time_estimate: item.time_estimate,
-                        type: group
+                        type: grp
                     };
-                    if (item.subitems && level !== 'L4') {
-                        recurse(id, item.subitems, `L${+level.slice(1) + 1}`);
-                    }
+                    if (item.subitems && lvl !== 'L4') recurse(id, item.subitems, `L${+lvl.slice(1) + 1}`);
                 });
             }
-
-            // Start at process level (L1)
             recurse(rootId, data.levels.L1 || [], 'L1');
 
-            // Render with vis-network
             const container = document.getElementById('network');
             const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
@@ -239,21 +234,19 @@ you clicked!”
                 },
                 layout: {
                     hierarchical: {
-                        direction: 'UD',
-                        sortMethod: 'directed',
-                        levelSeparation: 150,
-                        nodeSpacing: 200,
-                        treeSpacing: 200
+                        direction: 'UD', sortMethod: 'directed',
+                        levelSeparation: 150, nodeSpacing: 200, treeSpacing: 200
                     }
                 },
-                physics: false,
-                interaction: { hover: true }
+                physics: false, interaction: { hover: true }
             };
             const network = new vis.Network(container, visData, options);
 
-            // Drill Down button and results
+            // Drill-down wiring
             const drillBtn = document.getElementById('drillBtn');
             const drillResults = document.getElementById('drillResults');
+            const codegenBtn = document.getElementById('codegenBtn');
+            const codegenResult = document.getElementById('codegenResult');
 
             network.on("selectNode", params => {
                 currentFocus = params.nodes[0];
@@ -261,45 +254,96 @@ you clicked!”
                 renderDetails(info);
                 drillResults.innerHTML = '';
                 drillBtn.disabled = !(info.name && info.role && info.tools);
+                codegenResult.textContent = '';               // clear prior code
+                codegenBtn.disabled = !(info.name && info.role && info.tools);
             });
 
             drillBtn.onclick = async () => {
                 drillBtn.disabled = true;
                 const info = nodeDetails[currentFocus];
-                try {
-                    let tools = info.tools;
-                    if (typeof tools === 'string') {
-                        tools = tools.split(',').map(s => s.trim());
-                    }
-                    const payload = {
+
+                // Normalize tools into an array
+                let tools = info.tools;
+                if (typeof tools === 'string') {
+                    tools = tools.split(',').map(s => s.trim());
+                }
+
+                // *** THIS MUST be exactly '/api/agent' ***
+                const url = '/api/agent';
+
+                // And the body must look like this:
+                const payload = {
+                    agent: 'micro_decomp',
+                    payload: {
                         name: info.name,
                         role: info.role,
                         tools: tools,
                         deliverable: info.deliverable,
                         time_estimate: info.time_estimate
-                    };
-                    const res = await fetch('/drilldown', {
+                    }
+                };
+
+                console.log('Drill-down request:', url, payload);
+
+                try {
+                    const resp = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(payload),
                     });
-                    if (!res.ok) {
-                        drillResults.textContent = 'Error: ' + res.statusText;
-                    } else {
-                        const { subtasks } = await res.json();
-                        drillResults.innerHTML = '<ul>' + subtasks.map(st =>
-                            `<li><strong>${st.name}</strong> — ${st.role} (tools: ${st.tools.join(", ")})</li>`
-                        ).join('') + '</ul>';
-                    }
+
+                    // Inspect the raw JSON so we know what shape we got back
+                    const body = await resp.json();
+                    console.log('Drill-down response body:', body);
+
+                    const subtasks = body.result?.subtasks ?? body.subtasks ?? [];
+                    drillResults.innerHTML = '<ul>' +
+                        subtasks.map(st =>
+                            `<li><strong>${st.name}</strong> — ${st.role} (tools: ${st.tools.join(', ')})</li>`
+                        ).join('') +
+                        '</ul>';
                 } catch (e) {
-                    drillResults.textContent = 'Fetch error: ' + e;
+                    drillResults.textContent = 'Error: ' + e;
                 } finally {
                     drillBtn.disabled = false;
                 }
             };
+
+            codegenBtn.onclick = async () => {
+                codegenBtn.disabled = true;
+                const info = nodeDetails[currentFocus];
+                // normalize tools
+                let tools = info.tools;
+                if (typeof tools === 'string') tools = tools.split(',').map(s => s.trim());
+
+                try {
+                    const resp = await fetch('/api/agent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            agent: 'codegen',
+                            payload: {
+                                name: info.name,
+                                role: info.role,
+                                tools: tools,
+                                deliverable: info.deliverable,
+                                time_estimate: info.time_estimate
+                            }
+                        })
+                    });
+                    const body = await resp.json();
+                    // two possible shapes, pick whichever applies
+                    const code = body.result?.code ?? body.code ?? '';
+                    codegenResult.textContent = code;
+                } catch (e) {
+                    codegenResult.textContent = 'Error: ' + e;
+                } finally {
+                    codegenBtn.disabled = false;
+                }
+            };
         }
 
-        // Render node details
+        // Render details (unchanged)
         function renderDetails(info) {
             const fields = [
                 ['Type', info.type || ''],
@@ -310,9 +354,9 @@ you clicked!”
                 ['Time Estimate', info.time_estimate || '']
             ];
             let html = '<dl>';
-            fields.forEach(([label, val]) => {
-                if (val) html += `<dt>${label}:</dt><dd>${val}</dd>`;
-            });
+            for (const [lbl, val] of fields) {
+                if (val) html += `<dt>${lbl}:</dt><dd>${val}</dd>`;
+            }
             html += '</dl>';
             document.getElementById('detailsContent').innerHTML = html;
         }

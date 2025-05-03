@@ -19,7 +19,8 @@ import re
 import json
 from ...utils.openai_client import chat_completion
 from ..base import Agent
-
+import logging
+logger = logging.getLogger("blueprint_maker.func_decomp")
 
 class MicroDecompAgent (Agent):
     """
@@ -27,8 +28,15 @@ class MicroDecompAgent (Agent):
     Takes a single task and breaks it into concrete subtasks (3–6 items),
     returning detailed JSON for each subtask.
     """
+    logger = logging.getLogger("blueprint_maker.micro_decomp")
+    def run(self, payload: dict) -> dict:
+        # payload is the single-node info
+        logger.debug("Drilling down task: %s", payload)
+        subtasks = self.drill_down(payload)
+        logger.debug("Drill-down result: %s", subtasks)
 
     def drill_down(self, task: dict) -> list[dict]:
+        logger.debug("Drilling down task: %s", task)
         """
         :param task: dict with keys name, role, tools, deliverable, time_estimate
         :return: list of subtasks, each a dict with the same keys
@@ -62,6 +70,7 @@ class MicroDecompAgent (Agent):
 
         try:
             subtasks = json.loads(content)
+            logger.debug("Drill-down result: %s", subtasks)
             if not isinstance(subtasks, list):
                 raise ValueError("Expected a JSON array of subtasks")
             return subtasks

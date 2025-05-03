@@ -14,14 +14,16 @@
 
 # agents/registry.yaml
 func_decomp:
-  impl: agents.openai.FuncDecompAgent
+  impl: backend.agents.openai.func_decomp_agent.FuncArchAgent
 micro_decomp:
-  impl: agents.openai.MicroDecompAgent
+  impl: backend.agents.openai.micro_decomp_agent.MicroDecompAgent
 codegen:
-  impl: agents.openai.CodeGenAgent
+  impl: backend.agents.openai.codegen_agent.CodeGenAgent
 
 # In the future you can add:
 nvidia_micro_decomp:
-  impl: agents.nvidia.MicroDecompAgentIQ
+  impl: backend.agents.nvidia.MicroDecompAgentIQ
 google_code_adapt:
-  impl: agents.google.A2AAdapter
+  impl: backend.agents.google.A2AAdapter
+anthropic_code_adapt:
+  impl: backend.agents.anthropic.MCPAdapter

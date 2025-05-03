@@ -16,17 +16,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import re, json
+import logging
+logger = logging.getLogger("blueprint_maker.func_decomp")
 from ...utils.openai_client import chat_completion
 from ..base import Agent
-from ..openai.micro_decomp_agent import MicroDecompAgent
 
 class FuncArchAgent (Agent):
+    def run(self, payload: dict) -> dict:
+        """
+        Dispatch the payload from our /api/agent call:
+          payload = { "function_name": str, "framework": str }
+        """
+        fn = payload["function_name"]
+        fw = payload["framework"]
+        return self.decompose(fn, fw)
+
     def decompose(
         self,
         function_name: str,
         framework: str = "APQC",
         context: str = "AI-native ad agency"
     ):
+        
         prompt = (
             f"Use the {framework} process classification framework. "
             f"Decompose the function '{function_name}' in the context of a {context} "

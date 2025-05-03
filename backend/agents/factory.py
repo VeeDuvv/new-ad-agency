@@ -13,13 +13,22 @@
 
 
 import yaml, importlib
-from agents.base import Agent
+import os
+import logging
+logger = logging.getLogger("blueprint_maker.func_decomp")
 
-_registry = yaml.safe_load(open("agents/registry.yaml"))
+from backend.agents.base import Agent
+# Compute the registry path next to this file
+_here = os.path.dirname(__file__)
+_registry_path = os.path.join(_here, "registry.yaml")
 
+# Load the registry
+_registry = yaml.safe_load(open(_registry_path, "r"))
 def get_agent(name: str) -> Agent:
+    logger.debug("backend.agents.factory: get_agent(%s)", name)
     entry = _registry[name]
     module_name, cls_name = entry["impl"].rsplit(".", 1)
     mod = importlib.import_module(module_name)
     cls = getattr(mod, cls_name)
+    logger.debug("backend.agents.factory: class(%s)", cls)
     return cls()  # Must be an Agent subclass

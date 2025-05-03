@@ -14,7 +14,7 @@ functions in one place.
 
 import sys
 import json
-from backend.agents.func_decomp_agent import FuncArchAgent
+from backend.agents.openai.func_decomp_agent import FuncArchAgent
 
 def main():
     if len(sys.argv) < 2:

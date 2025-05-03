@@ -14,54 +14,35 @@ the door in JSON format!”
 """
 
 from typing import List
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from agents.factory import get_agent
+
 import uvicorn
 
-from backend.agents.func_decomp_agent import FuncArchAgent
-from backend.agents.micro_decomp_agent import MicroDecompAgent
+from backend.agents.openai.func_decomp_agent import FuncArchAgent
+from backend.agents.openai.micro_decomp_agent import MicroDecompAgent
 
 load_dotenv()  # load OPENAI_API_KEY
 
 app = FastAPI(title="Blueprint Maker API")
 
-# ——— Decomposition endpoint ———
-class DecomposeRequest(BaseModel):
-    function_name: str
-    framework: str = "APQC"  # either "APQC" or "eTOM"
+class AgentRequest(BaseModel):
+    agent: str
+    payload: dict
 
-@app.post("/decompose")
-async def decompose(req: DecomposeRequest):
-    """
-    Accepts:
-      { function_name: str, framework: str }
-    Returns:
-      L0–L4 decomposition JSON
-    """
-    agent = FuncArchAgent()
-    return agent.decompose(req.function_name, req.framework)
+@app.post("/api/agent")
+def call_agent(req: AgentRequest):
+    try:
+        agent = get_agent(req.agent)
+    except KeyError:
+        raise HTTPException(404, f"No such agent: {req.agent}")
 
-# ——— Drill-down endpoint ———
-class DrillRequest(BaseModel):
-    name: str
-    role: str
-    tools: List[str]
-    deliverable: str
-    time_estimate: str
-
-@app.post("/drilldown")
-async def drill_down(req: DrillRequest):
-    """
-    Accepts:
-      { name, role, tools, deliverable, time_estimate }
-    Returns:
-      { subtasks: [...] }
-    """
-    micro = MicroDecompAgent()
-    subtasks = micro.drill_down(req.dict())
-    return {"subtasks": subtasks}
+    result = agent.run(req.payload)
+    return {"result": result}
 
 # ——— Static files (UI) ———
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

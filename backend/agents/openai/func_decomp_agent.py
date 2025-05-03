@@ -16,9 +16,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import re, json
-from ..utils.openai_client import chat_completion
+from ...utils.openai_client import chat_completion
+from ..base import Agent
+from ..openai.micro_decomp_agent import MicroDecompAgent
 
-class FuncArchAgent:
+class FuncArchAgent (Agent):
     def decompose(
         self,
         function_name: str,

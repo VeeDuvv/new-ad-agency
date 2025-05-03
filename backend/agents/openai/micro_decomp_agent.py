@@ -17,9 +17,11 @@ load_dotenv()  # load OPENAI_API_KEY
 
 import re
 import json
-from ..utils.openai_client import chat_completion
+from ...utils.openai_client import chat_completion
+from ..base import Agent
 
-class MicroDecompAgent:
+
+class MicroDecompAgent (Agent):
     """
     Micro-Decomposition Agent:
     Takes a single task and breaks it into concrete subtasks (3–6 items),

@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Vamsi Duvvuri
+
+# This file is used to register the agents in the system.
+# The agents are registered by their name and the implementation class.
+# The implementation class is used to create the agent when it is requested.
+# The agents are registered in the following format:
+# <agent_name>:
+#   impl: <agent_implementation_class>
+# The agent_name is used to identify the agent in the system.
+# The implementation class is used to create the agent when it is requested.
+# The implementation class should be in the format <module>.<class_name>
+# The module should be the name of the module where the class is defined.
+
+# agents/registry.yaml
+func_decomp:
+  impl: agents.openai.FuncDecompAgent
+micro_decomp:
+  impl: agents.openai.MicroDecompAgent
+codegen:
+  impl: agents.openai.CodeGenAgent
+
+# In the future you can add:
+nvidia_micro_decomp:
+  impl: agents.nvidia.MicroDecompAgentIQ
+google_code_adapt:
+  impl: agents.google.A2AAdapter

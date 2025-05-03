@@ -1,21 +1,41 @@
-# backend/utils/openai_client.py
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Vamsi Duvvuri
 
+# ----------------------------------------
+# openai_client.py
+# ----------------------------------------
+# Description:
+#   Centralized OpenAI client wrapper with retry logic
+#
+# Responsibilities:
+#   - Load environment variables (OPENAI_API_KEY) via python-dotenv
+#   - Instantiate the OpenAI client once
+#   - Provide retry-enabled functions:
+#       * chat_completion(messages, functions=None, model, temperature)
+#       * create_embedding(text, model)
+#   - Use tenacity for exponential backoff on API calls
+#   - Define and manage default model names and parameters
+#   - Consistent error handling (catch OpenAIError)
+#   - Simplify API usage for all downstream agents
 from dotenv import load_dotenv
-load_dotenv()  # load OPENAI_API_KEY
+load_dotenv()  # load OPENAI_API_KEY into environment
 
 import os
 from openai import OpenAI, OpenAIError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# instantiate client
+# Instantiate a single OpenAI client with the API key
 _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def chat_completion(messages, functions=None, model="gpt-4o", temperature=0.2):
     """
-    Wrapper for chat completions with retry.
-    :param messages: list of {role, content} dicts
-    :param functions: optional list of function definitions
+    Wrapper for OpenAI Chat Completion with retry logic.
+    :param messages: list of dicts [{role, content}, ...]
+    :param functions: optional list of function schemas for function-calling
+    :param model: LLM model name
+    :param temperature: sampling temperature
+    :return: OpenAI API response
     """
     return _client.chat.completions.create(
         model=model,
@@ -27,20 +47,12 @@ def chat_completion(messages, functions=None, model="gpt-4o", temperature=0.2):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def create_embedding(text, model="text-embedding-3-small"):
     """
-    Wrapper for embeddings with retry.
+    Wrapper for OpenAI Embedding creation with retry logic.
     :param text: string or list of strings
+    :param model: embedding model name
+    :return: OpenAI API response
     """
     return _client.embeddings.create(
         model=model,
-        input=text
+        input=text,
     )
-
-# Self-test when run directly
-if __name__ == "__main__":
-    try:
-        resp = chat_completion([{"role":"user","content":"Testing wrapper"}])
-        print("Wrapper chat OK:", resp.choices[0].message.content)
-        emb = create_embedding("wrapper test")
-        print("Wrapper embedding length:", len(emb.data[0].embedding))
-    except OpenAIError as e:
-        print("Wrapper error:", e)

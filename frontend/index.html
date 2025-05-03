@@ -1,14 +1,18 @@
 <!--
-
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2025 Vamsi Duvvuri
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Vamsi Duvvuri
 
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“Now our map has a big title block at the top showing the name of your toy set 
-(like ‘Investor Relations’). It’s like the cover of your LEGO set box, so you 
-always know which plan you’re looking at. Then all the steps hang down below it.”
+“This is the big control panel for our Blueprint Maker. On the left you can type
+in the name of the thing you want to break down (like ‘make ads’) and click the
+‘Decompose’ button. The page shows you two ways to see the plan: a hidden block
+you can open to read the raw steps in JSON, and a colorful map in the middle
+where each box or dot is a step you can click. When you click a step, the right
+panel tells you all the details—like who does it, what tools they use, and how
+long it takes. And while it’s thinking, the button takes a nap so you don’t
+press it twice by accident!”
 -->
 
 <!DOCTYPE html>
@@ -93,43 +97,50 @@ always know which plan you’re looking at. Then all the steps hang down below i
     </div>
 
     <script>
-        let nodeDetails = {};  // holds full objects by node id
+        let nodeDetails = {};
 
         document.getElementById('runBtn').onclick = async () => {
-            const fn = document.getElementById('fnName').value.trim();
-            if (!fn) return alert('Please enter a function name.');
+            const btn = document.getElementById('runBtn');
+            btn.disabled = true;  // prevent double-clicks
 
-            // Call the API
-            const res = await fetch('/decompose', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ function_name: fn })
-            });
-            if (!res.ok) {
-                document.getElementById('result').value = 'Error: ' + res.statusText;
+            const fn = document.getElementById('fnName').value.trim();
+            if (!fn) {
+                alert('Please enter a function name.');
+                btn.disabled = false;
                 return;
             }
 
-            const data = await res.json();
-            document.getElementById('result').value = JSON.stringify(data, null, 2);
-            buildGraph(data, fn);
+            try {
+                const res = await fetch('/decompose', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ function_name: fn })
+                });
+
+                if (!res.ok) {
+                    document.getElementById('result').value = 'Error: ' + res.statusText;
+                } else {
+                    const data = await res.json();
+                    document.getElementById('result').value = JSON.stringify(data, null, 2);
+                    buildGraph(data, fn);
+                }
+            } catch (err) {
+                document.getElementById('result').value = 'Fetch error: ' + err;
+            } finally {
+                btn.disabled = false;  // re-enable when done
+            }
         };
 
         function buildGraph(data, functionName) {
             const nodes = [];
             const edges = [];
-            nodeDetails = {};  // reset
+            nodeDetails = {};
 
-            // 1. Add root node for the function name
+            // root node for the function name
             const rootId = 'root';
-            nodes.push({
-                id: rootId,
-                label: functionName,
-                group: 'root'
-            });
+            nodes.push({ id: rootId, label: functionName, group: 'root' });
             nodeDetails[rootId] = { name: functionName, type: 'function' };
 
-            // 2. Add processes, activities, tasks
             data.processes.forEach((proc, pIdx) => {
                 const pid = `proc${pIdx}`;
                 nodes.push({ id: pid, label: proc.name, group: 'process' });
@@ -151,7 +162,6 @@ always know which plan you’re looking at. Then all the steps hang down below i
                 });
             });
 
-            // 3. Render with vis-network
             const container = document.getElementById('network');
             const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
@@ -167,11 +177,11 @@ always know which plan you’re looking at. Then all the steps hang down below i
             };
             const network = new vis.Network(container, visData, options);
 
-            // 4. Show details on click
             network.on("selectNode", params => {
                 const id = params.nodes[0];
                 const info = nodeDetails[id] || { error: "No details available" };
-                document.getElementById('detailsContent').textContent = JSON.stringify(info, null, 2);
+                document.getElementById('detailsContent').textContent =
+                    JSON.stringify(info, null, 2);
             });
         }
     </script>

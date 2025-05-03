@@ -12,9 +12,6 @@ of steps with a little legend on top. On the right, when you click any step,
 you’ll see exactly what that step is—its name, who’s responsible, what tools 
 they use, what they make, and how long it takes—in a nice list. No confusing 
 extra stuff from the children, just the step you clicked!”
-
-We also fixed our internal names so each step’s ID includes its parent, so every
-node is unique and you won’t get collisions anymore.
 -->
 
 <!DOCTYPE html>
@@ -64,11 +61,12 @@ node is unique and you won’t get collisions anymore.
             box-sizing: border-box;
         }
 
-        textarea {
+        #result {
             width: 100%;
-            height: 200px;
+            height: 30vh;
             font-family: monospace;
             margin-top: 0.5rem;
+            overflow-y: auto;
         }
 
         dl {
@@ -191,8 +189,7 @@ node is unique and you won’t get collisions anymore.
 
         function buildGraph(data, functionName) {
             nodeDetails = {};
-            const nodes = [];
-            const edges = [];
+            const nodes = [], edges = [];
 
             // L0: Function node
             const rootId = 'root';
@@ -229,21 +226,26 @@ node is unique and you won’t get collisions anymore.
             // Start at L1 (processes)
             recurse(rootId, data.levels.L1 || [], 'L1');
 
-            // Render with vis-network
+            // Render with vis-network, with more space and wrapped labels
             const container = document.getElementById('network');
-            const visData = {
-                nodes: new vis.DataSet(nodes),
-                edges: new vis.DataSet(edges)
-            };
+            const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
                 groups: {
-                    root: { color: '#FFA500', shape: 'box', font: { size: 24 } },
-                    process: { color: '#FFD700', shape: 'box' },
-                    activity: { color: '#87CEFA', shape: 'ellipse' },
+                    root: { color: '#FFA500', shape: 'box', font: { size: 24, multi: true }, widthConstraint: { maximum: 250 } },
+                    process: { color: '#FFD700', shape: 'box', font: { multi: true }, widthConstraint: { maximum: 200 } },
+                    activity: { color: '#87CEFA', shape: 'ellipse', font: { multi: true }, widthConstraint: { maximum: 180 } },
                     task: { color: '#90EE90', shape: 'dot' },
                     subtask: { color: '#D8BFD8', shape: 'triangle' }
                 },
-                layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+                layout: {
+                    hierarchical: {
+                        direction: 'UD',
+                        sortMethod: 'directed',
+                        levelSeparation: 150,
+                        nodeSpacing: 200,
+                        treeSpacing: 200
+                    }
+                },
                 physics: false,
                 interaction: { hover: true }
             };

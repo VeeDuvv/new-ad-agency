@@ -6,10 +6,10 @@
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“Imagine a magic page where you type the name of your toy set (like ‘make ads’), 
-and it shows you the hidden recipe—first as a secret collapsible note, and then 
-as a map of dots and arrows. Each dot is a step, each arrow shows which step 
-comes after which, so you can see the whole plan in a picture.”
+“Now when you click on any dot or block in our map, a window on the right 
+magically shows you all the secret info about that step—like who does it, 
+what tools they use, and how long it takes. It’s like clicking on a LEGO part 
+and seeing its instructions!”
 -->
 
 <!DOCTYPE html>
@@ -21,7 +21,27 @@ comes after which, so you can see the whole plan in a picture.”
     <style>
         body {
             font-family: sans-serif;
-            margin: 2rem;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #controls {
+            padding: 1rem;
+            width: 25%;
+            box-sizing: border-box;
+        }
+
+        #network {
+            flex: 1;
+            border-right: 1px solid #ccc;
+        }
+
+        #details {
+            width: 25%;
+            padding: 1rem;
+            box-sizing: border-box;
+            overflow-y: auto;
         }
 
         input,
@@ -31,46 +51,51 @@ comes after which, so you can see the whole plan in a picture.”
             margin-right: 0.5rem;
         }
 
-        #jsonDetails {
+        details {
             margin-top: 1rem;
         }
 
-        #result {
+        textarea {
             width: 100%;
             height: 200px;
             font-family: monospace;
         }
 
-        #network {
-            width: 100%;
-            height: 500px;
-            border: 1px solid #ccc;
-            margin-top: 1rem;
+        pre {
+            background: #f7f7f7;
+            padding: 0.5rem;
         }
     </style>
-    <!-- vis-network for graph visualization -->
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 
 <body>
-    <h1>Blueprint Maker</h1>
-    <p>
-        <label for="fnName">Enter function name:</label>
-        <input type="text" id="fnName" placeholder="e.g. Creative Development" />
-        <button id="runBtn">Decompose</button>
-    </p>
+    <!-- Left panel: controls + raw JSON -->
+    <div id="controls">
+        <h1>Blueprint Maker</h1>
+        <p>
+            <label for="fnName">Enter function name:</label><br />
+            <input type="text" id="fnName" placeholder="e.g. Creative Development" style="width:100%;" />
+            <button id="runBtn">Decompose</button>
+        </p>
+        <details>
+            <summary>Show Raw JSON</summary>
+            <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
+        </details>
+    </div>
 
-    <!-- Collapsible raw JSON output -->
-    <details id="jsonDetails">
-        <summary>Show Raw JSON</summary>
-        <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
-    </details>
-
-    <!-- Graph container -->
+    <!-- Center panel: graph -->
     <div id="network"></div>
 
+    <!-- Right panel: details -->
+    <div id="details">
+        <h2>Node Details</h2>
+        <pre id="detailsContent">Click a node to see details</pre>
+    </div>
+
     <script>
-        // On button click, call the API, show JSON, and draw the graph
+        let nodeDetails = {};  // will hold full objects by node id
+
         document.getElementById('runBtn').onclick = async () => {
             const fn = document.getElementById('fnName').value.trim();
             if (!fn) return alert('Please enter a function name.');
@@ -87,39 +112,59 @@ comes after which, so you can see the whole plan in a picture.”
             }
 
             const data = await res.json();
-            // Show raw JSON in the textarea
             document.getElementById('result').value = JSON.stringify(data, null, 2);
-
-            // Build and display the graph
             buildGraph(data);
         };
 
         function buildGraph(data) {
             const nodes = [];
             const edges = [];
+            nodeDetails = {};  // reset
 
             data.processes.forEach((proc, pIdx) => {
-                const pid = 'proc' + pIdx;
-                nodes.push({ id: pid, label: proc.name });
+                const pid = `proc${pIdx}`;
+                nodes.push({ id: pid, label: proc.name, group: 'process' });
+                nodeDetails[pid] = proc;
+
                 proc.activities.forEach((act, aIdx) => {
-                    const aid = pid + 'act' + aIdx;
-                    nodes.push({ id: aid, label: act.name });
+                    const aid = `${pid}act${aIdx}`;
+                    nodes.push({ id: aid, label: act.name, group: 'activity' });
                     edges.push({ from: pid, to: aid });
+                    nodeDetails[aid] = act;
+
                     act.tasks.forEach((task, tIdx) => {
-                        const tid = aid + 'task' + tIdx;
-                        nodes.push({ id: tid, label: task.name });
+                        const tid = `${aid}task${tIdx}`;
+                        nodes.push({ id: tid, label: task.name, group: 'task' });
                         edges.push({ from: aid, to: tid });
+                        nodeDetails[tid] = task;
                     });
                 });
             });
 
-            // Render with vis-network
             const container = document.getElementById('network');
             const visData = {
                 nodes: new vis.DataSet(nodes),
                 edges: new vis.DataSet(edges)
             };
-            new vis.Network(container, visData, {});
+            const options = {
+                groups: {
+                    process: { color: { background: '#FFD700' }, shape: 'box' },
+                    activity: { color: { background: '#87CEFA' }, shape: 'ellipse' },
+                    task: { color: { background: '#90EE90' }, shape: 'dot' }
+                },
+                layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+                physics: false,
+                interaction: { hover: true, multiselect: false }
+            };
+            const network = new vis.Network(container, visData, options);
+
+            // When a node is selected, show its details
+            network.on("selectNode", params => {
+                const id = params.nodes[0];
+                const info = nodeDetails[id] || { error: "No details available" };
+                document.getElementById('detailsContent').textContent =
+                    JSON.stringify(info, null, 2);
+            });
         }
     </script>
 </body>

@@ -13,19 +13,21 @@ robot reads that letter, makes the plan, and sends it back out
 the door in JSON format!”
 """
 
+from typing import List
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import uvicorn
 
-load_dotenv()  # load OPENAI_API_KEY
-
 from backend.agents.func_decomp_agent import FuncArchAgent
+from backend.agents.micro_decomp_agent import MicroDecompAgent
+
+load_dotenv()  # load OPENAI_API_KEY
 
 app = FastAPI(title="Blueprint Maker API")
 
-agent = FuncArchAgent()
-
+# ——— Decomposition endpoint ———
 class DecomposeRequest(BaseModel):
     function_name: str
     framework: str = "APQC"  # either "APQC" or "eTOM"
@@ -33,19 +35,37 @@ class DecomposeRequest(BaseModel):
 @app.post("/decompose")
 async def decompose(req: DecomposeRequest):
     """
-    Accepts JSON:
-      {
-        "function_name": "...",
-        "framework": "APQC"  // or "eTOM"
-      }
-    Returns the decomposition JSON aligned to the chosen framework.
+    Accepts:
+      { function_name: str, framework: str }
+    Returns:
+      L0–L4 decomposition JSON
     """
-    blueprint = agent.decompose(req.function_name, req.framework)
-    return blueprint
+    agent = FuncArchAgent()
+    return agent.decompose(req.function_name, req.framework)
 
-# Serve frontend
-from fastapi.staticfiles import StaticFiles
+# ——— Drill-down endpoint ———
+class DrillRequest(BaseModel):
+    name: str
+    role: str
+    tools: List[str]
+    deliverable: str
+    time_estimate: str
+
+@app.post("/drilldown")
+async def drill_down(req: DrillRequest):
+    """
+    Accepts:
+      { name, role, tools, deliverable, time_estimate }
+    Returns:
+      { subtasks: [...] }
+    """
+    micro = MicroDecompAgent()
+    subtasks = micro.drill_down(req.dict())
+    return {"subtasks": subtasks}
+
+# ——— Static files (UI) ———
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
+# ——— Run server (dev only) ———
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)

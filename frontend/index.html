@@ -10,8 +10,10 @@ of the big job you want to map (like ‘make ads’), choose whether you want to
 the APQC or eTOM rulebook, and click ‘Decompose.’ In the middle you see the map 
 of steps with a little legend on top. On the right, when you click any step, 
 you’ll see exactly what that step is—its name, who’s responsible, what tools 
-they use, what they make, and how long it takes—in a nice list. No confusing 
-extra stuff from the children, just the step you clicked!”
+they use, what they make, and how long it takes—in a nice list. If you want more 
+detail, click the ‘Drill Down’ button and you’ll get the 3–6 tiny steps that 
+make up that step, shown right below. No confusing extra stuff—just the step 
+you clicked!”
 -->
 
 <!DOCTYPE html>
@@ -144,35 +146,31 @@ extra stuff from the children, just the step you clicked!”
         <div id="network"></div>
     </div>
 
-    <!-- Right panel: details -->
+    <!-- Right panel: details + drill-down -->
     <div id="details">
         <h2>Node Details</h2>
         <div id="detailsContent">Click a node to see details</div>
+        <button id="drillBtn" disabled style="margin-top:1em;">Drill Down</button>
+        <div id="drillResults" style="margin-top:1em; font-size:0.9rem;"></div>
     </div>
 
     <script>
         let nodeDetails = {};
+        let currentFocus = null;
 
+        // Decompose button handler
         document.getElementById('runBtn').onclick = async () => {
             const btn = document.getElementById('runBtn');
             btn.disabled = true;
-
             const fn = document.getElementById('fnName').value.trim();
-            if (!fn) {
-                alert('Please enter a function name.');
-                btn.disabled = false;
-                return;
-            }
-
+            if (!fn) { alert('Please enter a function name.'); btn.disabled = false; return; }
             const framework = document.querySelector('input[name="framework"]:checked').value;
-
             try {
                 const res = await fetch('/decompose', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ function_name: fn, framework })
                 });
-
                 if (!res.ok) {
                     document.getElementById('result').value = 'Error: ' + res.statusText;
                 } else {
@@ -187,16 +185,18 @@ extra stuff from the children, just the step you clicked!”
             }
         };
 
+        // Build the graph
         function buildGraph(data, functionName) {
             nodeDetails = {};
+            currentFocus = null;
             const nodes = [], edges = [];
 
-            // L0: Function node
+            // L0 root node
             const rootId = 'root';
             nodes.push({ id: rootId, label: functionName, group: 'root' });
             nodeDetails[rootId] = { name: functionName, type: 'Function' };
 
-            // Recursive helper for L1–L4 with unique IDs
+            // Recursive helper for L1–L4
             function recurse(parentId, items, level) {
                 items.forEach((item, idx) => {
                     const id = `${parentId}-${level}-${idx}`;
@@ -223,10 +223,10 @@ extra stuff from the children, just the step you clicked!”
                 });
             }
 
-            // Start at L1 (processes)
+            // Start at process level (L1)
             recurse(rootId, data.levels.L1 || [], 'L1');
 
-            // Render with vis-network, with more space and wrapped labels
+            // Render with vis-network
             const container = document.getElementById('network');
             const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
             const options = {
@@ -251,13 +251,55 @@ extra stuff from the children, just the step you clicked!”
             };
             const network = new vis.Network(container, visData, options);
 
+            // Drill Down button and results
+            const drillBtn = document.getElementById('drillBtn');
+            const drillResults = document.getElementById('drillResults');
+
             network.on("selectNode", params => {
-                const id = params.nodes[0];
-                const info = nodeDetails[id] || {};
+                currentFocus = params.nodes[0];
+                const info = nodeDetails[currentFocus] || {};
                 renderDetails(info);
+                drillResults.innerHTML = '';
+                drillBtn.disabled = !(info.name && info.role && info.tools);
             });
+
+            drillBtn.onclick = async () => {
+                drillBtn.disabled = true;
+                const info = nodeDetails[currentFocus];
+                try {
+                    let tools = info.tools;
+                    if (typeof tools === 'string') {
+                        tools = tools.split(',').map(s => s.trim());
+                    }
+                    const payload = {
+                        name: info.name,
+                        role: info.role,
+                        tools: tools,
+                        deliverable: info.deliverable,
+                        time_estimate: info.time_estimate
+                    };
+                    const res = await fetch('/drilldown', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        drillResults.textContent = 'Error: ' + res.statusText;
+                    } else {
+                        const { subtasks } = await res.json();
+                        drillResults.innerHTML = '<ul>' + subtasks.map(st =>
+                            `<li><strong>${st.name}</strong> — ${st.role} (tools: ${st.tools.join(", ")})</li>`
+                        ).join('') + '</ul>';
+                    }
+                } catch (e) {
+                    drillResults.textContent = 'Fetch error: ' + e;
+                } finally {
+                    drillBtn.disabled = false;
+                }
+            };
         }
 
+        // Render node details
         function renderDetails(info) {
             const fields = [
                 ['Type', info.type || ''],
@@ -267,13 +309,10 @@ extra stuff from the children, just the step you clicked!”
                 ['Deliverable', info.deliverable || ''],
                 ['Time Estimate', info.time_estimate || '']
             ];
-
             let html = '<dl>';
-            for (const [label, val] of fields) {
-                if (val) {
-                    html += `<dt>${label}:</dt><dd>${val}</dd>`;
-                }
-            }
+            fields.forEach(([label, val]) => {
+                if (val) html += `<dt>${label}:</dt><dd>${val}</dd>`;
+            });
             html += '</dl>';
             document.getElementById('detailsContent').innerHTML = html;
         }

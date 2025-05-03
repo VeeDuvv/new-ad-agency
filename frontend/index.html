@@ -6,10 +6,10 @@
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“Imagine a little webpage with a box where you can type the name of your toy set 
-(like ‘make ads’). When you click the button, it goes through our little door 
-(the API) and shows you the full list of steps right on the page. 
-This file builds that simple webpage.”
+“Imagine a magic page where you type the name of your toy set (like ‘make ads’), 
+and it shows you the hidden recipe—first as a secret collapsible note, and then 
+as a map of dots and arrows. Each dot is a step, each arrow shows which step 
+comes after which, so you can see the whole plan in a picture.”
 -->
 
 <!DOCTYPE html>
@@ -24,31 +24,58 @@ This file builds that simple webpage.”
             margin: 2rem;
         }
 
-        textarea {
-            width: 100%;
-            height: 200px;
-        }
-
         input,
         button {
             font-size: 1rem;
             padding: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        #jsonDetails {
+            margin-top: 1rem;
+        }
+
+        #result {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+        }
+
+        #network {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ccc;
+            margin-top: 1rem;
         }
     </style>
+    <!-- vis-network for graph visualization -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 
 <body>
     <h1>Blueprint Maker</h1>
-    <p>Enter function name:</p>
-    <input type="text" id="fnName" placeholder="e.g. Creative Development" style="width: 300px;" />
-    <button id="runBtn">Decompose</button>
-    <h2>Result:</h2>
-    <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
+    <p>
+        <label for="fnName">Enter function name:</label>
+        <input type="text" id="fnName" placeholder="e.g. Creative Development" />
+        <button id="runBtn">Decompose</button>
+    </p>
+
+    <!-- Collapsible raw JSON output -->
+    <details id="jsonDetails">
+        <summary>Show Raw JSON</summary>
+        <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
+    </details>
+
+    <!-- Graph container -->
+    <div id="network"></div>
 
     <script>
+        // On button click, call the API, show JSON, and draw the graph
         document.getElementById('runBtn').onclick = async () => {
-            const fn = document.getElementById('fnName').value;
+            const fn = document.getElementById('fnName').value.trim();
             if (!fn) return alert('Please enter a function name.');
+
+            // Call the API
             const res = await fetch('/decompose', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -58,9 +85,42 @@ This file builds that simple webpage.”
                 document.getElementById('result').value = 'Error: ' + res.statusText;
                 return;
             }
-            const json = await res.json();
-            document.getElementById('result').value = JSON.stringify(json, null, 2);
+
+            const data = await res.json();
+            // Show raw JSON in the textarea
+            document.getElementById('result').value = JSON.stringify(data, null, 2);
+
+            // Build and display the graph
+            buildGraph(data);
         };
+
+        function buildGraph(data) {
+            const nodes = [];
+            const edges = [];
+
+            data.processes.forEach((proc, pIdx) => {
+                const pid = 'proc' + pIdx;
+                nodes.push({ id: pid, label: proc.name });
+                proc.activities.forEach((act, aIdx) => {
+                    const aid = pid + 'act' + aIdx;
+                    nodes.push({ id: aid, label: act.name });
+                    edges.push({ from: pid, to: aid });
+                    act.tasks.forEach((task, tIdx) => {
+                        const tid = aid + 'task' + tIdx;
+                        nodes.push({ id: tid, label: task.name });
+                        edges.push({ from: aid, to: tid });
+                    });
+                });
+            });
+
+            // Render with vis-network
+            const container = document.getElementById('network');
+            const visData = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+            new vis.Network(container, visData, {});
+        }
     </script>
 </body>
 

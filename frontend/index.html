@@ -5,12 +5,16 @@
 File: frontend/index.html
 
 Need for this file (5th-grader explanation):
-“This is our magic webpage. First, you type the name of the big job 
-(like ‘Media Buying & Execution’). Then you choose which rulebook 
-(APQC or eTOM) you want to follow—just two simple radio buttons. 
-Click ‘Decompose’ and watch the plan appear below as a hidden JSON 
-note, a colorful map of blocks and dots, and when you click any block, 
-the panel on the right tells you all the juicy details!”
+“Here’s the control panel for our Blueprint Maker. On the left you type the name 
+of the big job you want to map (like ‘make ads’), choose whether you want to follow 
+the APQC or eTOM rulebook, and click ‘Decompose.’ In the middle you see the map 
+of steps with a little legend on top. On the right, when you click any step, 
+you’ll see exactly what that step is—its name, who’s responsible, what tools 
+they use, what they make, and how long it takes—in a nice list. No confusing 
+extra stuff from the children, just the step you clicked!”
+
+We also fixed our internal names so each step’s ID includes its parent, so every
+node is unique and you won’t get collisions anymore.
 -->
 
 <!DOCTYPE html>
@@ -33,9 +37,15 @@ the panel on the right tells you all the juicy details!”
             box-sizing: border-box;
         }
 
-        #network {
+        #graph-container {
             flex: 1;
+            position: relative;
             border-right: 1px solid #ccc;
+        }
+
+        #network {
+            width: 100%;
+            height: 100%;
         }
 
         #details {
@@ -50,28 +60,64 @@ the panel on the right tells you all the juicy details!”
             font-size: 1rem;
             padding: 0.5rem;
             margin: 0.25rem 0;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         textarea {
             width: 100%;
             height: 200px;
             font-family: monospace;
+            margin-top: 0.5rem;
         }
 
-        pre {
-            background: #f7f7f7;
+        dl {
+            margin: 0;
+        }
+
+        dt {
+            font-weight: bold;
+            margin-top: 0.5em;
+        }
+
+        dd {
+            margin: 0 0 0.5em 1em;
+        }
+
+        .legend {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
             padding: 0.5rem;
+            font-size: 0.9rem;
+            z-index: 1;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            margin-right: 6px;
         }
     </style>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 
 <body>
+    <!-- Left panel: controls + raw JSON -->
     <div id="controls">
         <h1>Blueprint Maker</h1>
         <p>
             <label for="fnName">Enter function name:</label><br />
-            <input type="text" id="fnName" placeholder="e.g. Creative Development" style="width:100%;" />
+            <input type="text" id="fnName" placeholder="e.g. Creative Development" />
         </p>
         <p>
             <label>Choose framework:</label><br />
@@ -87,11 +133,23 @@ the panel on the right tells you all the juicy details!”
         </details>
     </div>
 
-    <div id="network"></div>
+    <!-- Center panel: graph + legend -->
+    <div id="graph-container">
+        <div class="legend">
+            <strong>Legend</strong>
+            <div class="legend-item"><span class="legend-color" style="background:#FFA500;"></span>Function (L0)</div>
+            <div class="legend-item"><span class="legend-color" style="background:#FFD700;"></span>Process (L1)</div>
+            <div class="legend-item"><span class="legend-color" style="background:#87CEFA;"></span>Activity (L2)</div>
+            <div class="legend-item"><span class="legend-color" style="background:#90EE90;"></span>Task (L3)</div>
+            <div class="legend-item"><span class="legend-color" style="background:#D8BFD8;"></span>Subtask (L4)</div>
+        </div>
+        <div id="network"></div>
+    </div>
 
+    <!-- Right panel: details -->
     <div id="details">
         <h2>Node Details</h2>
-        <pre id="detailsContent">Click a node to see details</pre>
+        <div id="detailsContent">Click a node to see details</div>
     </div>
 
     <script>
@@ -102,7 +160,11 @@ the panel on the right tells you all the juicy details!”
             btn.disabled = true;
 
             const fn = document.getElementById('fnName').value.trim();
-            if (!fn) { alert('Please enter a function name.'); btn.disabled = false; return; }
+            if (!fn) {
+                alert('Please enter a function name.');
+                btn.disabled = false;
+                return;
+            }
 
             const framework = document.querySelector('input[name="framework"]:checked').value;
 
@@ -128,44 +190,51 @@ the panel on the right tells you all the juicy details!”
         };
 
         function buildGraph(data, functionName) {
-            const nodes = [], edges = [];
             nodeDetails = {};
+            const nodes = [];
+            const edges = [];
 
+            // L0: Function node
             const rootId = 'root';
             nodes.push({ id: rootId, label: functionName, group: 'root' });
-            nodeDetails[rootId] = { name: functionName, type: 'function' };
+            nodeDetails[rootId] = { name: functionName, type: 'Function' };
 
-            data.levels.L1.forEach((proc, i) => {
-                const pid = `L1-${i}`;
-                nodes.push({ id: pid, label: proc.name, group: 'process' });
-                edges.push({ from: rootId, to: pid });
-                nodeDetails[pid] = proc;
-
-                // L2, L3, L4 nested (assuming the JSON structure matches)
-                proc.subitems && proc.subitems.forEach((act, j) => {
-                    const aid = `${pid}-L2-${j}`;
-                    nodes.push({ id: aid, label: act.name, group: 'activity' });
-                    edges.push({ from: pid, to: aid });
-                    nodeDetails[aid] = act;
-
-                    act.subitems && act.subitems.forEach((task, k) => {
-                        const tid = `${aid}-L3-${k}`;
-                        nodes.push({ id: tid, label: task.name, group: 'task' });
-                        edges.push({ from: aid, to: tid });
-                        nodeDetails[tid] = task;
-
-                        task.subitems && task.subitems.forEach((sub, m) => {
-                            const sid = `${tid}-L4-${m}`;
-                            nodes.push({ id: sid, label: sub.name, group: 'subtask' });
-                            edges.push({ from: tid, to: sid });
-                            nodeDetails[sid] = sub;
-                        });
-                    });
+            // Recursive helper for L1–L4 with unique IDs
+            function recurse(parentId, items, level) {
+                items.forEach((item, idx) => {
+                    const id = `${parentId}-${level}-${idx}`;
+                    const group = level === 'L1'
+                        ? 'process'
+                        : level === 'L2'
+                            ? 'activity'
+                            : level === 'L3'
+                                ? 'task'
+                                : 'subtask';
+                    nodes.push({ id, label: item.name, group });
+                    edges.push({ from: parentId, to: id });
+                    nodeDetails[id] = {
+                        name: item.name,
+                        role: item.role,
+                        tools: item.tools,
+                        deliverable: item.deliverable,
+                        time_estimate: item.time_estimate,
+                        type: group
+                    };
+                    if (item.subitems && level !== 'L4') {
+                        recurse(id, item.subitems, `L${+level.slice(1) + 1}`);
+                    }
                 });
-            });
+            }
 
+            // Start at L1 (processes)
+            recurse(rootId, data.levels.L1 || [], 'L1');
+
+            // Render with vis-network
             const container = document.getElementById('network');
-            const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const visData = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
             const options = {
                 groups: {
                     root: { color: '#FFA500', shape: 'box', font: { size: 24 } },
@@ -182,9 +251,29 @@ the panel on the right tells you all the juicy details!”
 
             network.on("selectNode", params => {
                 const id = params.nodes[0];
-                const info = nodeDetails[id] || { error: "No details available" };
-                document.getElementById('detailsContent').textContent = JSON.stringify(info, null, 2);
+                const info = nodeDetails[id] || {};
+                renderDetails(info);
             });
+        }
+
+        function renderDetails(info) {
+            const fields = [
+                ['Type', info.type || ''],
+                ['Name', info.name || ''],
+                ['Role', info.role || ''],
+                ['Tools', Array.isArray(info.tools) ? info.tools.join(', ') : info.tools || ''],
+                ['Deliverable', info.deliverable || ''],
+                ['Time Estimate', info.time_estimate || '']
+            ];
+
+            let html = '<dl>';
+            for (const [label, val] of fields) {
+                if (val) {
+                    html += `<dt>${label}:</dt><dd>${val}</dd>`;
+                }
+            }
+            html += '</dl>';
+            document.getElementById('detailsContent').innerHTML = html;
         }
     </script>
 </body>

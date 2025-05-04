@@ -28,15 +28,15 @@ class MicroDecompAgent (Agent):
     Takes a single task and breaks it into concrete subtasks (3–6 items),
     returning detailed JSON for each subtask.
     """
-    logger = logging.getLogger("blueprint_maker.micro_decomp")
     def run(self, payload: dict) -> dict:
         # payload is the single-node info
-        logger.debug("Drilling down task: %s", payload)
+        # logger.debug("MicroDecompAgent.run Drilling down task: %s", payload)
         subtasks = self.drill_down(payload)
-        logger.debug("Drill-down result: %s", subtasks)
+        # logger.debug("MicroDecompAgent.run Drill-down result: %s", subtasks)
+        return subtasks
 
     def drill_down(self, task: dict) -> list[dict]:
-        logger.debug("Drilling down task: %s", task)
+        # logger.debug("Drilling down task: %s", task)
         """
         :param task: dict with keys name, role, tools, deliverable, time_estimate
         :return: list of subtasks, each a dict with the same keys
@@ -72,9 +72,11 @@ class MicroDecompAgent (Agent):
             subtasks = json.loads(content)
             logger.debug("Drill-down result: %s", subtasks)
             if not isinstance(subtasks, list):
+                logger.error("Expected a JSON array of subtasks, got: %s", type(subtasks))
                 raise ValueError("Expected a JSON array of subtasks")
             return subtasks
         except (json.JSONDecodeError, ValueError) as e:
+            logger.error("Failed to parse subtasks JSON: %s", e)
             raise RuntimeError(f"Failed to parse subtasks JSON:\n{e}\n\nRaw content:\n{content}")
 
 # Self-test

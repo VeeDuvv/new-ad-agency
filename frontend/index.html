@@ -54,6 +54,18 @@ you clicked!”
             overflow-y: auto;
         }
 
+        #drillResults ul {
+            list-style: disc inside;
+            margin: 0.5em 0;
+            padding: 0 0.5em;
+            background: #f7f7f7;
+            border-radius: 4px;
+        }
+
+        #drillResults li {
+            margin-left: 0.5em;
+        }
+
         #codegenResult {
             font-family: monospace;
             max-height: 30vh;
@@ -157,52 +169,41 @@ you clicked!”
         <h2>Node Details</h2>
         <div id="detailsContent">Click a node to see details</div>
         <button id="drillBtn" disabled style="margin-top:1em;">Drill Down</button>
-        <div id="drillResults" style="margin-top:1em; font-size:0.9rem;"></div>
+        <pre id="drillResults" style="
+       margin-top:1em; 
+       font-size:0.9rem; 
+       background:#f7f7f7; 
+       padding:0.5rem; 
+       border-radius:4px;
+       white-space: pre-wrap;
+     "></pre>
+
+
         <!-- CodeGen controls -->
         <button id="codegenBtn" disabled style="margin-top:1em;">Generate Code</button>
         <pre id="codegenResult" style="margin-top:1em; background:#f7f7f7; padding:0.5rem;"></pre>
     </div>
 
     <script>
-        let nodeDetails = {}, currentFocus = null;
+        let nodeDetails = {}, currentFocus = null, network = null;
 
-        // Decompose via unified dispatcher
-        document.getElementById('runBtn').onclick = async () => {
-            const btn = document.getElementById('runBtn');
-            btn.disabled = true;
-            const fn = document.getElementById('fnName').value.trim();
-            if (!fn) { alert('Please enter a function name.'); btn.disabled = false; return; }
-            const framework = document.querySelector('input[name="framework"]:checked').value;
+        const runBtn = document.getElementById('runBtn');
+        const drillBtn = document.getElementById('drillBtn');
+        const drillResults = document.getElementById('drillResults');
+        const codegenBtn = document.getElementById('codegenBtn');
+        const codegenResult = document.getElementById('codegenResult');
 
-            try {
-                const response = await fetch('/api/agent', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        agent: 'func_decomp',
-                        payload: { function_name: fn, framework }
-                    })
-                });
-
-                const { result } = await response.json();
-                document.getElementById('result').value = JSON.stringify(result, null, 2);
-                buildGraph(result, fn);
-            } catch (err) {
-                document.getElementById('result').value = 'Fetch error: ' + err;
-            } finally {
-                btn.disabled = false;
-            }
-        };
-
-        // Build the graph (unchanged)
         function buildGraph(data, functionName) {
-            nodeDetails = {}; currentFocus = null;
+            nodeDetails = {};
+            currentFocus = null;
             const nodes = [], edges = [];
 
+            // root node
             const rootId = 'root';
             nodes.push({ id: rootId, label: functionName, group: 'root' });
             nodeDetails[rootId] = { name: functionName, type: 'Function' };
 
+            // recurse helper…
             function recurse(parentId, items, lvl) {
                 items.forEach((item, i) => {
                     const id = `${parentId}-${lvl}-${i}`;
@@ -222,126 +223,126 @@ you clicked!”
             }
             recurse(rootId, data.levels.L1 || [], 'L1');
 
+            // render network
             const container = document.getElementById('network');
             const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-            const options = {
-                groups: {
-                    root: { color: '#FFA500', shape: 'box', font: { size: 24, multi: true }, widthConstraint: { maximum: 250 } },
-                    process: { color: '#FFD700', shape: 'box', font: { multi: true }, widthConstraint: { maximum: 200 } },
-                    activity: { color: '#87CEFA', shape: 'ellipse', font: { multi: true }, widthConstraint: { maximum: 180 } },
-                    task: { color: '#90EE90', shape: 'dot' },
-                    subtask: { color: '#D8BFD8', shape: 'triangle' }
-                },
-                layout: {
-                    hierarchical: {
-                        direction: 'UD', sortMethod: 'directed',
-                        levelSeparation: 150, nodeSpacing: 200, treeSpacing: 200
-                    }
-                },
-                physics: false, interaction: { hover: true }
-            };
-            const network = new vis.Network(container, visData, options);
+            const options = { /* … your existing options … */ };
+            network = new vis.Network(container, visData, options);
 
-            // Drill-down wiring
-            const drillBtn = document.getElementById('drillBtn');
-            const drillResults = document.getElementById('drillResults');
-            const codegenBtn = document.getElementById('codegenBtn');
-            const codegenResult = document.getElementById('codegenResult');
-
+            // selection logic
             network.on("selectNode", params => {
                 currentFocus = params.nodes[0];
                 const info = nodeDetails[currentFocus] || {};
                 renderDetails(info);
                 drillResults.innerHTML = '';
+                codegenResult.textContent = '';
                 drillBtn.disabled = !(info.name && info.role && info.tools);
-                codegenResult.textContent = '';               // clear prior code
-                codegenBtn.disabled = !(info.name && info.role && info.tools);
+                codegenBtn.disabled = drillBtn.disabled;
             });
-
-            drillBtn.onclick = async () => {
-                drillBtn.disabled = true;
-                const info = nodeDetails[currentFocus];
-
-                // Normalize tools into an array
-                let tools = info.tools;
-                if (typeof tools === 'string') {
-                    tools = tools.split(',').map(s => s.trim());
-                }
-
-                // *** THIS MUST be exactly '/api/agent' ***
-                const url = '/api/agent';
-
-                // And the body must look like this:
-                const payload = {
-                    agent: 'micro_decomp',
-                    payload: {
-                        name: info.name,
-                        role: info.role,
-                        tools: tools,
-                        deliverable: info.deliverable,
-                        time_estimate: info.time_estimate
-                    }
-                };
-
-                console.log('Drill-down request:', url, payload);
-
-                try {
-                    const resp = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                    });
-
-                    // Inspect the raw JSON so we know what shape we got back
-                    const body = await resp.json();
-                    console.log('Drill-down response body:', body);
-
-                    const subtasks = body.result?.subtasks ?? body.subtasks ?? [];
-                    drillResults.innerHTML = '<ul>' +
-                        subtasks.map(st =>
-                            `<li><strong>${st.name}</strong> — ${st.role} (tools: ${st.tools.join(', ')})</li>`
-                        ).join('') +
-                        '</ul>';
-                } catch (e) {
-                    drillResults.textContent = 'Error: ' + e;
-                } finally {
-                    drillBtn.disabled = false;
-                }
-            };
-
-            codegenBtn.onclick = async () => {
-                codegenBtn.disabled = true;
-                const info = nodeDetails[currentFocus];
-                // normalize tools
-                let tools = info.tools;
-                if (typeof tools === 'string') tools = tools.split(',').map(s => s.trim());
-
-                try {
-                    const resp = await fetch('/api/agent', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            agent: 'codegen',
-                            payload: {
-                                name: info.name,
-                                role: info.role,
-                                tools: tools,
-                                deliverable: info.deliverable,
-                                time_estimate: info.time_estimate
-                            }
-                        })
-                    });
-                    const body = await resp.json();
-                    // two possible shapes, pick whichever applies
-                    const code = body.result?.code ?? body.code ?? '';
-                    codegenResult.textContent = code;
-                } catch (e) {
-                    codegenResult.textContent = 'Error: ' + e;
-                } finally {
-                    codegenBtn.disabled = false;
-                }
-            };
         }
+
+        runBtn.onclick = async () => {
+            runBtn.disabled = true;
+            const fn = document.getElementById('fnName').value.trim();
+            if (!fn) { alert('Enter a function name'); runBtn.disabled = false; return; }
+            const framework = document.querySelector('input[name="framework"]:checked').value;
+
+            const res = await fetch('/api/agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent: 'func_decomp',
+                    payload: { function_name: fn, framework }
+                })
+            });
+            const { result } = await res.json();
+            document.getElementById('result').value = JSON.stringify(result, null, 2);
+            buildGraph(result, fn);
+            runBtn.disabled = false;
+        };
+
+        drillBtn.onclick = async () => {
+            drillBtn.disabled = true;
+            const info = nodeDetails[currentFocus];
+
+            // Normalize tools into an array
+            let tools = info.tools;
+            if (typeof tools === 'string') {
+                tools = tools.split(',').map(s => s.trim());
+            }
+
+            // *** THIS MUST be exactly '/api/agent' ***
+            const url = '/api/agent';
+
+            // And the body must look like this:
+            const payload = {
+                agent: 'micro_decomp',
+                payload: {
+                    name: info.name,
+                    role: info.role,
+                    tools: tools,
+                    deliverable: info.deliverable,
+                    time_estimate: info.time_estimate
+                }
+            };
+
+            console.log('Drill-down request:', url, payload);
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                // Inspect the raw JSON so we know what shape we got back
+                const body = await resp.json();
+                console.log('Drill-down response body:', body);
+
+                const subtasks = body.result?.subtasks ?? [];
+                drillResults.textContent =
+                    subtasks.map(st =>
+                        `${st.name} — ${st.role} (tools: ${st.tools.join(', ')})`
+                    ).join('\n');
+            } catch (e) {
+                drillResults.textContent = 'Error: ' + e;
+            } finally {
+                drillBtn.disabled = false;
+            }
+        };
+
+        codegenBtn.onclick = async () => {
+            codegenBtn.disabled = true;
+            const info = nodeDetails[currentFocus];
+            // normalize tools
+            let tools = info.tools;
+            if (typeof tools === 'string') tools = tools.split(',').map(s => s.trim());
+
+            try {
+                const resp = await fetch('/api/agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent: 'codegen',
+                        payload: {
+                            name: info.name,
+                            role: info.role,
+                            tools: tools,
+                            deliverable: info.deliverable,
+                            time_estimate: info.time_estimate
+                        }
+                    })
+                });
+                const body = await resp.json();
+                // two possible shapes, pick whichever applies
+                const code = body.result?.code ?? body.code ?? '';
+                codegenResult.textContent = code;
+            } catch (e) {
+                codegenResult.textContent = 'Error: ' + e;
+            } finally {
+                codegenBtn.disabled = false;
+            }
+        };
 
         // Render details (unchanged)
         function renderDetails(info) {

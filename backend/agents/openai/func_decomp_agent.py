@@ -18,15 +18,12 @@ load_dotenv()
 import re, json
 import logging
 logger = logging.getLogger("blueprint_maker.func_decomp")
+
 from ...utils.openai_client import chat_completion
 from ..base import Agent
 
 class FuncArchAgent (Agent):
     def run(self, payload: dict) -> dict:
-        """
-        Dispatch the payload from our /api/agent call:
-          payload = { "function_name": str, "framework": str }
-        """
         fn = payload["function_name"]
         fw = payload["framework"]
         return self.decompose(fn, fw)
@@ -36,7 +33,7 @@ class FuncArchAgent (Agent):
         function_name: str,
         framework: str = "APQC",
         context: str = "AI-native ad agency"
-    ):
+    )-> dict:
         
         prompt = (
             f"Use the {framework} process classification framework. "
@@ -60,8 +57,9 @@ class FuncArchAgent (Agent):
         content = resp.choices[0].message.content.strip()
         content = re.sub(r"^```(?:json)?\s*", "", content)
         content = re.sub(r"\s*```$", "", content)
-
+        
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
+            logger.error("JSON parse error: %s\nRaw content:\n%s", e, content)
             raise RuntimeError(f"Failed to parse JSON:\n{e}\n\nRaw content:\n{content}")

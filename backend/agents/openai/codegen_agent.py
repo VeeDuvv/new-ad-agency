@@ -26,7 +26,7 @@ class CodeGenAgent(Agent):
     """
 
     def run(self, payload: Dict[str, Any]) -> Dict[str, str]:
-        logger.debug("CodeGenAgent.run: payload: %s", payload)
+        # logger.debug("CodeGenAgent.run: payload: %s", payload)
         """
         :param payload: {
             "name": str,
@@ -59,7 +59,7 @@ class CodeGenAgent(Agent):
         # Strip Markdown fences if present
         code = re.sub(r"^```(?:python)?\s*", "", code)
         code = re.sub(r"\s*```$", "", code)
-        logger.debug("CodeGenAgent.run: code: %s", code)
+        # logger.debug("CodeGenAgent.run: code: %s", code)
         return {"code": code}
 
 # Self-test (optional)

@@ -70,7 +70,7 @@ class MicroDecompAgent (Agent):
 
         try:
             subtasks = json.loads(content)
-            logger.debug("Drill-down result: %s", subtasks)
+            # logger.debug("Drill-down result: %s", subtasks)
             if not isinstance(subtasks, list):
                 logger.error("Expected a JSON array of subtasks, got: %s", type(subtasks))
                 raise ValueError("Expected a JSON array of subtasks")

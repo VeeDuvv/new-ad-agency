@@ -6,14 +6,10 @@ File: frontend/index.html
 
 Need for this file (5th-grader explanation):
 “Here’s the control panel for our Blueprint Maker. On the left you type the name 
-of the big job you want to map (like ‘make ads’), choose whether you want to follow 
-the APQC or eTOM rulebook, and click ‘Decompose.’ In the middle you see the map 
-of steps with a little legend on top. On the right, when you click any step, 
-you’ll see exactly what that step is—its name, who’s responsible, what tools 
-they use, what they make, and how long it takes—in a nice list. If you want more 
-detail, click the ‘Drill Down’ button and you’ll get the 3–6 tiny steps that 
-make up that step, shown right below. No confusing extra stuff—just the step 
-you clicked!”
+of the big job you want to map, choose the rulebook (APQC or eTOM), and click 
+‘Decompose.’ In the middle you see the map of steps. On the right, you click 
+‘Drill Down’ to see the little steps as a list, or ‘Generate Code’ to get code 
+for that step—no confusing extra stuff!”
 -->
 
 <!DOCTYPE html>
@@ -54,6 +50,12 @@ you clicked!”
             overflow-y: auto;
         }
 
+        /* Drill‐Down styling */
+        #drillResults {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
         #drillResults ul {
             list-style: disc inside;
             margin: 0.5em 0;
@@ -66,10 +68,16 @@ you clicked!”
             margin-left: 0.5em;
         }
 
+        /* CodeGen styling */
         #codegenResult {
+            margin-top: 1rem;
+            background: #f7f7f7;
+            padding: 0.5rem;
+            border-radius: 4px;
             font-family: monospace;
             max-height: 30vh;
             overflow-y: auto;
+            white-space: pre-wrap;
         }
 
         input,
@@ -89,19 +97,7 @@ you clicked!”
             overflow-y: auto;
         }
 
-        dl {
-            margin: 0;
-        }
-
-        dt {
-            font-weight: bold;
-            margin-top: 0.5em;
-        }
-
-        dd {
-            margin: 0 0 0.5em 1em;
-        }
-
+        /* Legend */
         .legend {
             position: absolute;
             top: 10px;
@@ -130,15 +126,15 @@ you clicked!”
 </head>
 
 <body>
-    <!-- Left panel: controls + raw JSON -->
+    <!-- Left panel -->
     <div id="controls">
         <h1>Blueprint Maker</h1>
         <p>
-            <label for="fnName">Enter function name:</label><br />
+            <label for="fnName">Function name:</label><br />
             <input type="text" id="fnName" placeholder="e.g. Creative Development" />
         </p>
         <p>
-            <label>Choose framework:</label><br />
+            <label>Framework:</label><br />
             <input type="radio" id="apqc" name="framework" value="APQC" checked>
             <label for="apqc">APQC</label><br />
             <input type="radio" id="etom" name="framework" value="eTOM">
@@ -147,11 +143,11 @@ you clicked!”
         <button id="runBtn">Decompose</button>
         <details style="margin-top:1rem;">
             <summary>Show Raw JSON</summary>
-            <textarea id="result" readonly placeholder="Your decomposition will appear here..."></textarea>
+            <textarea id="result" readonly placeholder="Decomposition JSON..."></textarea>
         </details>
     </div>
 
-    <!-- Center panel: graph + legend -->
+    <!-- Center panel -->
     <div id="graph-container">
         <div class="legend">
             <strong>Legend</strong>
@@ -164,202 +160,155 @@ you clicked!”
         <div id="network"></div>
     </div>
 
-    <!-- Right panel: details + drill-down -->
+    <!-- Right panel -->
     <div id="details">
         <h2>Node Details</h2>
         <div id="detailsContent">Click a node to see details</div>
-        <button id="drillBtn" disabled style="margin-top:1em;">Drill Down</button>
-        <pre id="drillResults" style="
-       margin-top:1em; 
-       font-size:0.9rem; 
-       background:#f7f7f7; 
-       padding:0.5rem; 
-       border-radius:4px;
-       white-space: pre-wrap;
-     "></pre>
-
-
-        <!-- CodeGen controls -->
-        <button id="codegenBtn" disabled style="margin-top:1em;">Generate Code</button>
-        <pre id="codegenResult" style="margin-top:1em; background:#f7f7f7; padding:0.5rem;"></pre>
+        <button id="drillBtn" disabled>Drill Down</button>
+        <div id="drillResults"></div>
+        <button id="codegenBtn" disabled>Generate Code</button>
+        <div id="codegenResult"></div>
     </div>
 
     <script>
-        let nodeDetails = {}, currentFocus = null, network = null;
-
+        // Element refs
         const runBtn = document.getElementById('runBtn');
         const drillBtn = document.getElementById('drillBtn');
         const drillResults = document.getElementById('drillResults');
         const codegenBtn = document.getElementById('codegenBtn');
         const codegenResult = document.getElementById('codegenResult');
+        let nodeDetails = {}, currentFocus = null, network;
 
-        function buildGraph(data, functionName) {
-            nodeDetails = {};
-            currentFocus = null;
-            const nodes = [], edges = [];
-
-            // root node
-            const rootId = 'root';
-            nodes.push({ id: rootId, label: functionName, group: 'root' });
-            nodeDetails[rootId] = { name: functionName, type: 'Function' };
-
-            // recurse helper…
-            function recurse(parentId, items, lvl) {
-                items.forEach((item, i) => {
-                    const id = `${parentId}-${lvl}-${i}`;
-                    const grp = lvl === 'L1' ? 'process' : lvl === 'L2' ? 'activity' : lvl === 'L3' ? 'task' : 'subtask';
-                    nodes.push({ id, label: item.name, group: grp });
-                    edges.push({ from: parentId, to: id });
-                    nodeDetails[id] = {
-                        name: item.name,
-                        role: item.role,
-                        tools: item.tools,
-                        deliverable: item.deliverable,
-                        time_estimate: item.time_estimate,
-                        type: grp
-                    };
-                    if (item.subitems && lvl !== 'L4') recurse(id, item.subitems, `L${+lvl.slice(1) + 1}`);
-                });
-            }
-            recurse(rootId, data.levels.L1 || [], 'L1');
-
-            // render network
-            const container = document.getElementById('network');
-            const visData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-            const options = { /* … your existing options … */ };
-            network = new vis.Network(container, visData, options);
-
-            // selection logic
-            network.on("selectNode", params => {
-                currentFocus = params.nodes[0];
-                const info = nodeDetails[currentFocus] || {};
-                renderDetails(info);
-                drillResults.innerHTML = '';
-                codegenResult.textContent = '';
-                drillBtn.disabled = !(info.name && info.role && info.tools);
-                codegenBtn.disabled = drillBtn.disabled;
-            });
-        }
-
+        // 1) Decompose
         runBtn.onclick = async () => {
             runBtn.disabled = true;
             const fn = document.getElementById('fnName').value.trim();
-            if (!fn) { alert('Enter a function name'); runBtn.disabled = false; return; }
+            if (!fn) { alert('Enter a function name.'); runBtn.disabled = false; return; }
             const framework = document.querySelector('input[name="framework"]:checked').value;
 
-            const res = await fetch('/api/agent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const resp = await fetch('/api/agent', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     agent: 'func_decomp',
                     payload: { function_name: fn, framework }
                 })
             });
-            const { result } = await res.json();
+            const { result } = await resp.json();
             document.getElementById('result').value = JSON.stringify(result, null, 2);
             buildGraph(result, fn);
             runBtn.disabled = false;
         };
 
+        // 2) Drill‐Down
         drillBtn.onclick = async () => {
             drillBtn.disabled = true;
             const info = nodeDetails[currentFocus];
-
-            // Normalize tools into an array
-            let tools = info.tools;
-            if (typeof tools === 'string') {
-                tools = tools.split(',').map(s => s.trim());
-            }
-
-            // *** THIS MUST be exactly '/api/agent' ***
-            const url = '/api/agent';
-
-            // And the body must look like this:
-            const payload = {
-                agent: 'micro_decomp',
-                payload: {
-                    name: info.name,
-                    role: info.role,
-                    tools: tools,
-                    deliverable: info.deliverable,
-                    time_estimate: info.time_estimate
-                }
-            };
-
-            console.log('Drill-down request:', url, payload);
-
-            try {
-                const resp = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                // Inspect the raw JSON so we know what shape we got back
-                const body = await resp.json();
-                console.log('Drill-down response body:', body);
-
-                const subtasks = body.result?.subtasks ?? [];
-                drillResults.textContent =
-                    subtasks.map(st =>
-                        `${st.name} — ${st.role} (tools: ${st.tools.join(', ')})`
-                    ).join('\n');
-            } catch (e) {
-                drillResults.textContent = 'Error: ' + e;
-            } finally {
-                drillBtn.disabled = false;
-            }
-        };
-
-        codegenBtn.onclick = async () => {
-            codegenBtn.disabled = true;
-            const info = nodeDetails[currentFocus];
-            // normalize tools
             let tools = info.tools;
             if (typeof tools === 'string') tools = tools.split(',').map(s => s.trim());
 
-            try {
-                const resp = await fetch('/api/agent', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        agent: 'codegen',
-                        payload: {
-                            name: info.name,
-                            role: info.role,
-                            tools: tools,
-                            deliverable: info.deliverable,
-                            time_estimate: info.time_estimate
-                        }
-                    })
-                });
-                const body = await resp.json();
-                // two possible shapes, pick whichever applies
-                const code = body.result?.code ?? body.code ?? '';
-                codegenResult.textContent = code;
-            } catch (e) {
-                codegenResult.textContent = 'Error: ' + e;
-            } finally {
-                codegenBtn.disabled = false;
+            const resp = await fetch('/api/agent', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent: 'micro_decomp',
+                    payload: { ...info, tools }
+                })
+            });
+            const body = await resp.json();
+            let subtasks = [];
+            if (Array.isArray(body.result)) {
+                subtasks = body.result;
+            } else {
+                subtasks = body.result?.subtasks ?? body.subtasks ?? [];
             }
+            // inject HTML list
+            drillResults.innerHTML = '<ul>' +
+                subtasks.map(st =>
+                    `<li><strong>${st.name}</strong> — ${st.role} (tools: ${st.tools.join(', ')})</li>`
+                ).join('') +
+                '</ul>';
+            drillBtn.disabled = false;
         };
 
-        // Render details (unchanged)
+        // 3) CodeGen
+        codegenBtn.onclick = async () => {
+            codegenBtn.disabled = true;
+            const info = nodeDetails[currentFocus];
+            let tools = info.tools;
+            if (typeof tools === 'string') tools = tools.split(',').map(s => s.trim());
+
+            const resp = await fetch('/api/agent', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent: 'codegen',
+                    payload: { ...info, tools }
+                })
+            });
+            const body = await resp.json();
+            codegenResult.textContent = body.result?.code ?? '';
+            codegenBtn.disabled = false;
+        };
+
+        // 4) draw + selection
+        function buildGraph(data, functionName) {
+            nodeDetails = {}; currentFocus = null;
+            const nodes = [], edges = [];
+
+            // root
+            const rootId = 'root';
+            nodes.push({ id: rootId, label: functionName, group: 'root' });
+            nodeDetails[rootId] = { name: functionName, type: 'Function' };
+
+            // recurse L1–L4
+            (function recurse(parent, items, lvl) {
+                items.forEach((it, i) => {
+                    const id = `${parent}-${lvl}-${i}`;
+                    const grp = lvl === 'L1' ? 'process' : lvl === 'L2' ? 'activity' : lvl === 'L3' ? 'task' : 'subtask';
+                    nodes.push({ id, label: it.name, group: grp });
+                    edges.push({ from: parent, to: id });
+                    nodeDetails[id] = { ...it, type: grp };
+                    if (it.subitems && lvl !== 'L4') recurse(id, it.subitems, `L${+lvl[1] + 1}`);
+                });
+            })('root', data.levels.L1 || [], 'L1');
+
+            // render network
+            network = new vis.Network(
+                document.getElementById('network'),
+                { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) },
+                {
+                    groups: {
+                        root: { color: '#FFA500', shape: 'box' },
+                        process: { color: '#FFD700', shape: 'box' },
+                        activity: { color: '#87CEFA' },
+                        task: { color: '#90EE90' },
+                        subtask: { color: '#D8BFD8' }
+                    },
+                    layout: { hierarchical: { direction: 'UD' } },
+                    physics: false
+                }
+            );
+
+            network.on('selectNode', params => {
+                currentFocus = params.nodes[0];
+                const info = nodeDetails[currentFocus] || {};
+                renderDetails(info);
+                drillResults.innerHTML = '';
+                codegenResult.textContent = '';
+                const ok = info.name && info.role && info.tools;
+                drillBtn.disabled = !ok;
+                codegenBtn.disabled = !ok;
+            });
+        }
+
+        // 5) show node info
         function renderDetails(info) {
-            const fields = [
-                ['Type', info.type || ''],
-                ['Name', info.name || ''],
-                ['Role', info.role || ''],
-                ['Tools', Array.isArray(info.tools) ? info.tools.join(', ') : info.tools || ''],
-                ['Deliverable', info.deliverable || ''],
-                ['Time Estimate', info.time_estimate || '']
-            ];
-            let html = '<dl>';
-            for (const [lbl, val] of fields) {
-                if (val) html += `<dt>${lbl}:</dt><dd>${val}</dd>`;
-            }
-            html += '</dl>';
-            document.getElementById('detailsContent').innerHTML = html;
+            const out = [];
+            [['Type', info.type], ['Name', info.name], ['Role', info.role],
+            ['Tools', Array.isArray(info.tools) ? info.tools.join(', ') : info.tools],
+            ['Deliverable', info.deliverable], ['Time Estimate', info.time_estimate]
+            ].forEach(([lbl, val]) => {
+                if (val) out.push(`<dt>${lbl}:</dt><dd>${val}</dd>`);
+            });
+            document.getElementById('detailsContent').innerHTML = `<dl>${out.join('')}</dl>`;
         }
     </script>
 </body>

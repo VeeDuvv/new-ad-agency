@@ -39,7 +39,7 @@ class AgentRequest(BaseModel):
 
 @app.post("/api/agent")
 def call_agent(req: AgentRequest):
-    logger.debug("Received /api/agent request: agent=%s payload=%s", req.agent, req.payload)
+    # logger.debug("Received /api/agent request: agent=%s payload=%s", req.agent, req.payload)
     try:
         agent = get_agent(req.agent)
     except KeyError:
@@ -48,7 +48,7 @@ def call_agent(req: AgentRequest):
 
     try:
         result = agent.run(req.payload)
-        logger.debug("Agent %s returned: %s", req.agent, result)
+        # logger.debug("Agent %s returned: %s", req.agent, result)
     except Exception as e:
         logger.exception("Agent %s raised exception", req.agent)
         raise HTTPException(status_code=500, detail=str(e))

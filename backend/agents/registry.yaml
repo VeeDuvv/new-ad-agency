@@ -15,8 +15,29 @@
 # agents/registry.yaml
 func_decomp:
   impl: backend.agents.openai.func_decomp_agent.FuncArchAgent
+# … your existing entries …
+
+decomp:
+  impl: backend.agents.openai.func_decomp_agent.FuncArchAgent
+
 micro_decomp:
   impl: backend.agents.openai.micro_decomp_agent.MicroDecompAgent
+
+intake:
+  impl: backend.agents.openai.intake_agent.IntakeAgent
+
+strategy:
+  impl: backend.agents.openai.strategy_agent.StrategyAgent
+
+execute:
+  impl: backend.agents.openai.execution_agent.ExecutionAgent
+
+report:
+  impl: backend.agents.openai.reporting_agent.ReportingAgent
+
+director:
+  impl: backend.agents.openai.director_agent.DirectorAgent
+
 codegen:
   impl: backend.agents.openai.codegen_agent.CodeGenAgent
 

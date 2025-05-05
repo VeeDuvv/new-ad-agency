@@ -2,92 +2,70 @@
 # Copyright (c) 2025 Vamsi Duvvuri
 
 """
-File: backend/agents/micro_decomp_agent.py
+File: backend/agents/openai/micro_decomp_agent.py
 
 Need for this file (5th-grader explanation):
-“Imagine you have one big LEGO step like ‘Draft ad copy.’ This Micro-Decomp Agent
-listens to that step and writes down the 3–6 smaller steps you need to finish it—
-like ‘Brainstorm headlines,’ ‘Write first draft,’ ‘Edit snappy slogans.’ It gives
-you each tiny step with who does it, what tools they need, what they make, and how
-long it takes. That way, our robot helpers can follow each little instruction!”
+“Imagine you have a big task like ‘Draft Campaign Brief.’ MicroDecompAgent
+chops it into 3–6 bite-sized steps—like ‘Write outline,’ ‘Add KPIs,’
+‘Review with team’—so our robots (and people) know exactly what to do first,
+second, third, and so on.”
 """
 
-from dotenv import load_dotenv
-load_dotenv()  # load OPENAI_API_KEY
-
-import re
-import json
-from ...utils.openai_client import chat_completion
+import re, json
 from ..base import Agent
-import logging
-logger = logging.getLogger("blueprint_maker.func_decomp")
+from ...utils.openai_client import chat_completion
 
-class MicroDecompAgent (Agent):
-    """
-    Micro-Decomposition Agent:
-    Takes a single task and breaks it into concrete subtasks (3–6 items),
-    returning detailed JSON for each subtask.
-    """
+class MicroDecompAgent(Agent):
     def run(self, payload: dict) -> dict:
-        # payload is the single-node info
-        # logger.debug("MicroDecompAgent.run Drilling down task: %s", payload)
-        subtasks = self.drill_down(payload)
-        # logger.debug("MicroDecompAgent.run Drill-down result: %s", subtasks)
-        return subtasks
-
-    def drill_down(self, task: dict) -> list[dict]:
-        # logger.debug("Drilling down task: %s", task)
         """
-        :param task: dict with keys name, role, tools, deliverable, time_estimate
-        :return: list of subtasks, each a dict with the same keys
+        :param payload: {
+            "name": str,
+            "role": str,
+            "tools": List[str],
+            "deliverable": str,
+            "time_estimate": str
+        }
+        :return: { "subtasks": [ {name, role, tools, deliverable, time_estimate}, ... ] }
         """
-        # Build prompt
         prompt = (
-            "You are an expert process architect. Here is a task to decompose:\n\n"
-            f"{json.dumps(task, indent=2)}\n\n"
-            "Decompose this into 3–6 concrete subtasks. Return ONLY a JSON array of objects, "
-            "each with these fields:\n"
-            "  name: string\n"
-            "  role: string\n"
-            "  tools: array of strings\n"
-            "  deliverable: string\n"
-            "  time_estimate: string\n"
-            "Do not include any extra keys or explanatory text—just the JSON array."
+            "You are an expert task decomposer.\n"
+            "Below is a single task from our campaign blueprint. "
+            "Decompose this task into 3–6 ordered subtasks. "
+            "Return ONLY a JSON array named `subtasks` where each element has keys:\n"
+            "  • name: string\n"
+            "  • role: string\n"
+            "  • tools: array of strings\n"
+            "  • deliverable: string\n"
+            "  • time_estimate: string\n\n"
+            "Task:\n"
+            f"{json.dumps(payload, indent=2)}\n\n"
         )
 
         messages = [
-            {"role": "system", "content": "You are an expert process architect."},
-            {"role": "user",   "content": prompt},
+            {"role": "system",  "content": "You are a helpful micro-decomp assistant."},
+            {"role": "user",    "content": prompt}
         ]
 
-        # Call the LLM
-        resp = chat_completion(messages, model="gpt-4o", temperature=0)
+        resp = chat_completion(messages, model="gpt-4o", temperature=0.3)
         content = resp.choices[0].message.content.strip()
-
-        # Strip Markdown code fences if present
         content = re.sub(r"^```(?:json)?\s*", "", content)
         content = re.sub(r"\s*```$", "", content)
 
-        try:
-            subtasks = json.loads(content)
-            # logger.debug("Drill-down result: %s", subtasks)
-            if not isinstance(subtasks, list):
-                logger.error("Expected a JSON array of subtasks, got: %s", type(subtasks))
-                raise ValueError("Expected a JSON array of subtasks")
-            return subtasks
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error("Failed to parse subtasks JSON: %s", e)
-            raise RuntimeError(f"Failed to parse subtasks JSON:\n{e}\n\nRaw content:\n{content}")
+        # The LLM might return either an object {"subtasks":[...]} or just [...]
+        data = json.loads(content)
+        if isinstance(data, list):
+            return {"subtasks": data}
+        return {"subtasks": data.get("subtasks", [])}
+
 
 # Self-test
 if __name__ == "__main__":
     agent = MicroDecompAgent()
-    sample_task = {
-        "name": "Draft ad copy",
-        "role": "Copywriter",
-        "tools": ["Google Docs", "Grammarly"],
-        "deliverable": "3 headline + 2 body copy variants",
-        "time_estimate": "4 hours"
+    sample = {
+        "name": "Develop creative brief",
+        "role": "Creative Director",
+        "tools": ["Google Docs", "Brand Guidelines"],
+        "deliverable": "Creative brief document",
+        "time_estimate": "2 days"
     }
-    subtasks = agent.drill_down(sample_task)
-    print(json.dumps(subtasks, indent=2))
+    print(json.dumps(agent.run(sample), indent=2))

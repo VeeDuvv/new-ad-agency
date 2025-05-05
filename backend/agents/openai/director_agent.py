@@ -56,13 +56,16 @@ class DirectorAgent(Agent):
         })
         logger.debug("Blueprint: %s", blueprint)
 
-        # 4) Micro‑decompose each L3 task into subtasks
+        # 4) Micro‑decompose each L3 task into subtasks (handle both list or dict return)
         l3_tasks = blueprint["levels"].get("L3", [])
         subtasks = []
         for task in l3_tasks:
-            subtasks.extend(
-                get_agent("micro_decomp").run(task)["subtasks"]
-            )
+            result = get_agent("micro_decomp").run(task)
+            # result may be a list of subtasks, or a dict { "subtasks": [...] }
+            if isinstance(result, list):
+                subtasks.extend(result)
+            else:
+                subtasks.extend(result.get("subtasks", []))
         logger.debug("All subtasks: %s", subtasks)
 
         # 5) Execute each subtask

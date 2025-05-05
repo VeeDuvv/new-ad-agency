@@ -27,33 +27,45 @@ class ExecutionAgent(Agent):
         }
         :return: {
             "status": "success"|"error",
-            "details": { ... }
+            "details": {
+                "steps_executed": [ <tool names> ]
+            }
         }
         """
         prompt = (
             "You are ExecutionAgent for an AI-native ad agency.\n"
-            "Below is a single subtask, plus a list of tools you can call.\n"
-            "For each tool in `tools`, describe exactly how you would invoke it "
-            "(e.g. API endpoint, method, params) to complete this task. "
-            "Return ONLY a JSON object with keys:\n"
-            "  • status: \"success\" or \"error\"\n"
-            "  • details: an object describing any IDs or outputs produced\n\n"
-            f"Subtask:\n{json.dumps(payload, indent=2)}\n\n"
+            "Your ONLY job is to list which tools you would invoke to complete this subtask.\n"
+            "Return a JSON object with exactly two keys:\n"
+            "  \"status\": \"success\" or \"error\",\n"
+            "  \"details\": { \"steps_executed\": [ <tool names as strings> ] }\n"
+            "Do NOT include any other fields, nested objects, comments, or example code.\n\n"
+            "Subtask:\n"
+            f"{json.dumps(payload, indent=2)}\n"
         )
 
         messages = [
-            {"role": "system",  "content": "You are a helpful execution assistant."},
-            {"role": "user",    "content": prompt}
+            {"role": "system", "content": "You are a precise execution planner."},
+            {"role": "user",   "content": prompt}
         ]
 
         resp = chat_completion(messages, model="gpt-4o", temperature=0)
         content = resp.choices[0].message.content.strip()
+
+        # Strip markdown fences
         content = re.sub(r"^```(?:json)?\s*", "", content)
         content = re.sub(r"\s*```$", "", content)
 
-        result = json.loads(content)
-        return result
-
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            # Last-resort error structure
+            return {
+                "status": "error",
+                "details": {
+                    "raw_response": content,
+                    "error": str(e)
+                }
+            }
 
 # Self-test
 if __name__ == "__main__":

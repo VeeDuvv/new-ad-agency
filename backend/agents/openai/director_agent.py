@@ -68,13 +68,23 @@ class DirectorAgent(Agent):
                 subtasks.extend(result.get("subtasks", []))
         logger.debug("All subtasks: %s", subtasks)
 
-        # 5) Execute each subtask
+        # 5) Execute each subtask (planning) and then call the APIs
         executions = []
+        real_executions = []
         for st in subtasks:
-            executions.append(
-                get_agent("execute").run(st)
-            )
-        logger.debug("Executions: %s", executions)
+            # a) Plan the execution
+            exec_res = get_agent("execute").run(st)
+            executions.append(exec_res)
+            # logger.debug("Executions: %s", executions)
+
+            # b) Actually invoke each planned tool
+            plan = exec_res["details"]["steps_executed"]
+            apicaller_res = get_agent("apicaller").run({
+                **st,
+                "plan": plan
+            })
+            real_executions.append(apicaller_res)
+            # logger.debug("Real (API Called) Executions: %s", real_executions)
 
         # 6) Reporting
         report = get_agent("report").run({
@@ -88,6 +98,7 @@ class DirectorAgent(Agent):
             "strategy": strategy,
             "blueprint": blueprint,
             "executions": executions,
+            "real_executions": real_executions,
             "report": report
         }
         return {"campaign_package": package}

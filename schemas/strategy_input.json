@@ -1,16 +1,7 @@
 {
   "properties": {
     "campaign_spec": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
+      "additionalProperties": true,
       "title": "Campaign Spec",
       "type": "object"
     }

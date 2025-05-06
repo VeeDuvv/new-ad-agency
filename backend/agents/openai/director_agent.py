@@ -17,13 +17,20 @@ class DirectorAgent(Agent):
     """
 
     def run(self, payload: dict) -> dict:
+
+        # ——— Normalize numeric fields ———
+        # If budget came in as a string like "1" or "1000.5", convert it:
+        if "budget" in payload and isinstance(payload["budget"], str):
+            try:
+                payload["budget"] = float(payload["budget"])
+            except ValueError:
+                # leave it be and let the audit/schema catch it
+                pass
+
         # 0) Stamp a unique campaign ID
         campaign_id = str(uuid.uuid4())
 
         audit = AuditAgent()
-
-        
-        
         intake_payload = { **payload, "campaign_id": campaign_id }
 
         # Before IntakeAgent
@@ -33,7 +40,7 @@ class DirectorAgent(Agent):
             raise RuntimeError(f"Intake input invalid: {errs}")
 
         # 1) Intake 
-        spec = get_agent("intake").run({intake_payload})
+        spec = get_agent("intake").run(intake_payload)
 
         # After IntakeAgent returns:
         errs = audit.run({"phase": "output","agent": "intake","payload": spec})["errors"]
@@ -47,21 +54,34 @@ class DirectorAgent(Agent):
 
 
 
-        # Before StrategyAgent
-        errs = audit.run({"phase": "input", "agent": "strategy","payload": spec})["errors"]
-        if errs:
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"Intake input invalid: {errs}")
-
         # 2) Strategy
-        strategy = get_agent("strategy").run({"campaign_spec": spec})["strategy"]
 
-        # After StrategyAgent returns:
-        errs = audit.run({"phase": "output","agent": "strategy","payload": strategy})["errors"]
+        # build the payload the StrategyAgent expects
+        strategy_input = {"campaign_spec": spec}
+
+        # audit its input
+        errs = audit.run({
+            "phase": "input",
+            "agent": "strategy",
+            "payload": strategy_input
+        })["errors"]
         if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"Strategy output invalid: {errs}")
+            logger.error(f"Strategy Input errors: {errs}")
+            raise RuntimeError(f"Strategy input invalid: {errs}")
 
+        # invoke StrategyAgent
+        strategy_res = get_agent("strategy").run(strategy_input)
+        strategy = strategy_res["strategy"]
+
+        # audit its output
+        errs = audit.run({
+            "phase": "output",
+            "agent": "strategy",
+            "payload": strategy
+        })["errors"]
+        if errs:
+            logger.error(f"Strategy Output errors: {errs}")
+            raise RuntimeError(f"Strategy output invalid: {errs}")
 
 
 

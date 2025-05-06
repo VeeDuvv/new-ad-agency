@@ -15,6 +15,8 @@ Then it hands that neat package to the next robot so no one ever loses a note!�
 import re, json
 from ..base import Agent
 from ...utils.openai_client import chat_completion
+import logging
+logger = logging.getLogger("blueprint_maker.intake_agent")
 
 class IntakeAgent(Agent):
     def run(self, payload: dict) -> dict:
@@ -22,18 +24,22 @@ class IntakeAgent(Agent):
         :param payload: {
             "client_brief": str,
             "goals": str,
-            "budget": str,
-            "KPIs": List[str]
+            "budget": str|float,
+            "KPIs": List[str],
+            "framework": str,           # from DirectorAgent
+            "campaign_id": str          # injected by DirectorAgent
         }
         :return: {
-            "campaign_spec": {
-               "objectives": str,
-               "budget": float,
-               "KPIs": List[str],
-               "notes": str
-            }
+            "objectives": str,
+            "budget": float,
+            "KPIs": List[str],
+            "notes": str,
+            "campaign_id": str
         }
         """
+        # Debug: confirm we received the ID
+        # print("⚙️ IntakeAgent got payload:", payload)
+
         # Build the LLM prompt
         prompt = (
             "You are the IntakeAgent for an AI-native ad agency.\n"
@@ -65,7 +71,11 @@ class IntakeAgent(Agent):
 
         # Parse into dict
         spec = json.loads(content)
-        return {"campaign_spec": spec}
+
+        # Echo back the campaign_id so intake_output schema passes
+        spec["campaign_id"] = payload["campaign_id"]
+
+        return spec
 
 
 # Quick local test

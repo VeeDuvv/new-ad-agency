@@ -10,7 +10,7 @@
 
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-
+from typing import Any, Dict
 #
 # 1) IntakeAgent
 #
@@ -32,8 +32,8 @@ class IntakeOutput(BaseModel):
 # 2) StrategyAgent
 #
 class StrategyInput(BaseModel):
-    campaign_spec: Dict[str, Optional[str]]
-
+    campaign_spec: Dict[str, Any]
+    
 class StrategyOutput(BaseModel):
     segments: List[str]
     themes: List[str]

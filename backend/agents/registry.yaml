@@ -41,6 +41,9 @@ director:
 codegen:
   impl: backend.agents.openai.codegen_agent.CodeGenAgent
 
+apicaller:
+  impl: backend.agents.openai.apicaller_agent.APICallerAgent
+
 # In the future you can add:
 nvidia_micro_decomp:
   impl: backend.agents.nvidia.MicroDecompAgentIQ

@@ -13,8 +13,8 @@ def test_director():
     }
     pkg = agent.run(inp)
     print("DirectorAgent output keys:", pkg.keys())
-    import json
-    print(json.dumps(pkg, indent=2))
+    # import json
+    # print(json.dumps(pkg, indent=2))
 
 if __name__ == "__main__":
     test_director()

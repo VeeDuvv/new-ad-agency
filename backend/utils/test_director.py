@@ -1,6 +1,7 @@
 # import DirectorAgent
-
+import logging
 from backend.agents.openai.director_agent import DirectorAgent
+
 
 def test_director():
     agent = DirectorAgent()
@@ -17,4 +18,6 @@ def test_director():
     print(json.dumps(pkg, indent=2))
 
 if __name__ == "__main__":
+    # logging.basicConfig(level=logging.DEBUG,
+    #                 format="%(asctime)s %(levelname)-8s %(name)s %(message)s")
     test_director()

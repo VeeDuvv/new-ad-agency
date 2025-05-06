@@ -5,6 +5,22 @@ from .audit_agent import AuditAgent
 import logging
 logger = logging.getLogger("blueprint_maker.director_agent")
 
+audit_agent = AuditAgent()
+
+def _audit_or_raise(phase: str, agent_name: str, payload: dict):
+    """
+    Run the audit for a given phase/agent/payload.
+    Raises RuntimeError if audit.errors is non‐empty.
+    """
+    result = audit_agent.run({
+        "phase":   phase,
+        "agent":   agent_name,
+        "payload": payload
+    })
+    errs = result.get("errors", [])
+    if errs:
+        logger.error(f"{agent_name} {phase} invalid: {errs}")
+        raise RuntimeError(f"{agent_name.capitalize()} {phase} invalid: {errs}")
 
 class DirectorAgent(Agent):
     """
@@ -30,157 +46,118 @@ class DirectorAgent(Agent):
         # 0) Stamp a unique campaign ID
         campaign_id = str(uuid.uuid4())
 
-        audit = AuditAgent()
         intake_payload = { **payload, "campaign_id": campaign_id }
 
-        # Before IntakeAgent
-        errs = audit.run({"phase": "input", "agent": "intake","payload": intake_payload})["errors"]
-        if errs:
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"Intake input invalid: {errs}")
-
-        # 1) Intake 
+        _audit_or_raise("input", "intake", intake_payload)
         spec = get_agent("intake").run(intake_payload)
-
-        # After IntakeAgent returns:
-        errs = audit.run({"phase": "output","agent": "intake","payload": spec})["errors"]
-        if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"Intake output invalid: {errs}")
-
-
-
-
-
-
-
-        # 2) Strategy
+        _audit_or_raise("output", "intake", spec)
 
         # build the payload the StrategyAgent expects
         strategy_input = {"campaign_spec": spec}
 
-        # audit its input
-        errs = audit.run({
-            "phase": "input",
-            "agent": "strategy",
-            "payload": strategy_input
-        })["errors"]
-        if errs:
-            logger.error(f"Strategy Input errors: {errs}")
-            raise RuntimeError(f"Strategy input invalid: {errs}")
-
-        # invoke StrategyAgent
+        _audit_or_raise("input", "strategy", strategy_input)
         strategy_res = get_agent("strategy").run(strategy_input)
         strategy = strategy_res["strategy"]
+        _audit_or_raise("output", "strategy", strategy)
 
-        # audit its output
-        errs = audit.run({
-            "phase": "output",
-            "agent": "strategy",
-            "payload": strategy
-        })["errors"]
-        if errs:
-            logger.error(f"Strategy Output errors: {errs}")
-            raise RuntimeError(f"Strategy output invalid: {errs}")
-
-
-
-        # ——— 3) Blueprint (L0–L4) ———
-
-        # Build the exact payload our FuncArchAgent (key="decomp") expects:
         blueprint_input = {
             "function_name": strategy.get("strategy_name", "Campaign Execution"),
             "framework":     strategy.get("framework",     "APQC")
         }
 
-        # Audit the input _after_ we’ve constructed it
-        errs = audit.run({
-            "phase":   "input",
-            "agent":   "decomp",
-            "payload": blueprint_input    # <-- make sure this is blueprint_input
-        })["errors"]
-        if errs:
-            raise RuntimeError(f"Blueprint input invalid: {errs}")
-
-        # Now call the agent with that same dict
+        _audit_or_raise("input", "decomp", blueprint_input)
         blueprint = get_agent("decomp").run(blueprint_input)
+        _audit_or_raise("output", "decomp", blueprint)
 
-        # Audit its output
-        errs = audit.run({
-            "phase":   "output",
-            "agent":   "decomp",
-            "payload": blueprint
-        })["errors"]
-        if errs:
-            raise RuntimeError(f"Blueprint output invalid: {errs}")
-
-
-
-        # Before MicroDecompAgent
-        errs = audit.run({"phase": "input", "agent": "micro_decomp","payload": blueprint})["errors"]
-        if errs:
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"MicroDecomp input invalid: {errs}")
-        
-        # 4) Micro-decompose each L3 task
-        tasks = blueprint["levels"]["L3"]
-        subtasks = []
-        for task in tasks:
-            subtasks.extend(get_agent("micro_decomp").run(task)["subtasks"])
-
-        # After MicroDecompAgent returns:
-        errs = audit.run({"phase": "output","agent": "micro_decomp","payload": subtasks})["errors"]
-        if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"MicroDecomp output invalid: {errs}")
-        
-        
-        
-        
-        
-        # Before ExecuteAgent
-        errs = audit.run({"phase": "input", "agent": "execute","payload": subtasks})["errors"]
-        if errs:    
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"Execute input invalid: {errs}")
-        # 5) Plan & actual execution
-        executions = []
-        real_executions = []
-        for st in subtasks:
-            # a) Planning
-            plan_res = get_agent("execute").run(st)
-            executions.append(plan_res)
-
-            # b) Real API calls
-            apicaller_res = get_agent("apicaller").run({
-                **st,
-                "plan": plan_res["details"]["steps_executed"]
-            })
-            real_executions.append(apicaller_res)
-
-        # After ExecuteAgent returns:
-        errs = audit.run({"phase": "output","agent": "execute","payload": apicaller_res})["errors"]
-        if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"Execute output invalid: {errs}")
-
-
-        # Before ReportAgent
-        errs = audit.run({"phase": "input", "agent": "report","payload": real_executions})["errors"]
-        if errs:    
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"Report input invalid: {errs}")
-        # 6) Final report
-        report = get_agent("report").run({
+        campaign_package = {
             "campaign_id": campaign_id,
-            "executions": real_executions
-        })["report"]
+            "campaign_spec": spec,
+            "strategy":     strategy,
+            "blueprint":    blueprint
+        }
 
-        # After ReportAgent returns:
-        errs = audit.run({"phase": "output","agent": "report","payload": report})["errors"] 
-        if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"Report output invalid: {errs}")
+        # ——— 4) Micro-Decomposition ———
+        micro = get_agent("micro_decomp")
+        micro_results = []
+
+        # Grab every L3 task from the blueprint
+        tasks = blueprint.get("levels", {}).get("L3", [])
+        if not tasks:
+            raise RuntimeError("No tasks (L3) found in blueprint")
+
+        for task in tasks:
+            # Build the exact payload our MicroDecompAgent schema expects
+            task_input = {
+                "name":           task.get("name"),
+                "role":           task.get("role"),
+                "tools":          task.get("tools"),
+                "deliverable":    task.get("deliverable"),
+                "time_estimate":  task.get("time_estimate")
+            }
+
+            _audit_or_raise("input", "micro_decomp", task_input)
+            res = micro.run(task_input)
+            subtasks = res.get("subtasks", [])
+            _audit_or_raise("output", "micro_decomp", res)
+            # _audit_or_raise("output", "micro_decomp", subtasks)
+
+            # Collect for the campaign package
+            micro_results.append({**task_input, "subtasks": subtasks})
+
+        campaign_package["micro_decomposition"] = micro_results
+        
+        exec_agent = get_agent("execute")
+        api_agent  = get_agent("apicaller")
+        execution_results = []
+
+        # Loop over each L3 task’s subtasks
+        for micro_entry in campaign_package["micro_decomposition"]:
+            for subtask in micro_entry.get("subtasks", []):
+                # 5a) Build the single-subtask payload
+                exec_input = {
+                    "name":          subtask["name"],
+                    "role":          subtask["role"],
+                    "tools":         subtask["tools"],
+                    "deliverable":   subtask["deliverable"],
+                    "time_estimate": subtask["time_estimate"]
+                }
+                _audit_or_raise("input", "execute", exec_input)
+                exec_res = exec_agent.run(exec_input)
+                _audit_or_raise("output", "execute", exec_res)
+
+                # 5e) Build & audit APICallerAgent input
+                api_input = {**exec_input, "plan": exec_res["details"]["steps_executed"]}
+                
+                _audit_or_raise("input", "apicaller", api_input)
+                api_res = api_agent.run(api_input)
+                # print("🔍 DEBUG api_res:", api_res)
+
+                # normalize list → object
+                normalized = {
+                    "status": api_res["status"],
+                    "details": {
+                        "executed": {
+                            step["tool"]: step
+                            for step in api_res["details"]["executed"]
+                        },
+                        "responses": api_res["details"]["responses"]
+                    }
+                }
+                _audit_or_raise("output", "apicaller", normalized)
+                api_res = normalized     
+
+                execution_results.append({
+                    "subtask": exec_input,
+                    "plan":    exec_res["details"]["steps_executed"],
+                    "api":     api_res
+                })
+
+        # Finally, attach all executions to the campaign package
+        campaign_package["execution"] = execution_results
+
+        _audit_or_raise("input", "report", execution_results)
+        report = get_agent("report").run({"campaign_id": campaign_id, "executions": execution_results})["report"]
+        _audit_or_raise("output", "report", report)
 
         # 7) Package everything
         campaign_package = {
@@ -188,8 +165,8 @@ class DirectorAgent(Agent):
             "spec":            spec,
             "strategy":        strategy,
             "blueprint":       blueprint,
-            "executions":      executions,
-            "real_executions": real_executions,
+            "executions":      micro_results,
+            "real_executions": execution_results,
             "report":          report
         }
 

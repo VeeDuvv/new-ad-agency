@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "details": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Details",
+      "type": "object"
+    }
+  },
+  "required": [
+    "status",
+    "details"
+  ],
+  "title": "APICallerOutput",
+  "type": "object"
+}

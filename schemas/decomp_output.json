@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "LevelItem": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "deliverable": {
+          "title": "Deliverable",
+          "type": "string"
+        },
+        "time_estimate": {
+          "title": "Time Estimate",
+          "type": "string"
+        },
+        "subitems": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/LevelItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subitems"
+        }
+      },
+      "required": [
+        "name",
+        "role",
+        "tools",
+        "deliverable",
+        "time_estimate"
+      ],
+      "title": "LevelItem",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "levels": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/LevelItem"
+        },
+        "type": "array"
+      },
+      "title": "Levels",
+      "type": "object"
+    }
+  },
+  "required": [
+    "levels"
+  ],
+  "title": "FuncArchOutput",
+  "type": "object"
+}

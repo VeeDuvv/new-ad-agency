@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "function_name": {
+      "title": "Function Name",
+      "type": "string"
+    },
+    "framework": {
+      "title": "Framework",
+      "type": "string"
+    }
+  },
+  "required": [
+    "function_name",
+    "framework"
+  ],
+  "title": "FuncArchInput",
+  "type": "object"
+}

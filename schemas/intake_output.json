@@ -1,0 +1,36 @@
+{
+  "properties": {
+    "campaign_id": {
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "objectives": {
+      "title": "Objectives",
+      "type": "string"
+    },
+    "budget": {
+      "title": "Budget",
+      "type": "number"
+    },
+    "KPIs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Kpis",
+      "type": "array"
+    },
+    "notes": {
+      "title": "Notes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "objectives",
+    "budget",
+    "KPIs",
+    "notes"
+  ],
+  "title": "IntakeOutput",
+  "type": "object"
+}

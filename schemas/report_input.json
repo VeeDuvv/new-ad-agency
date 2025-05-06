@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "ExecuteDetails": {
+      "properties": {
+        "steps_executed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps Executed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps_executed"
+      ],
+      "title": "ExecuteDetails",
+      "type": "object"
+    },
+    "ExecuteOutput": {
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "details": {
+          "$ref": "#/$defs/ExecuteDetails"
+        }
+      },
+      "required": [
+        "status",
+        "details"
+      ],
+      "title": "ExecuteOutput",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "campaign_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Campaign Id"
+    },
+    "executions": {
+      "items": {
+        "$ref": "#/$defs/ExecuteOutput"
+      },
+      "title": "Executions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "executions"
+  ],
+  "title": "ReportingInput",
+  "type": "object"
+}

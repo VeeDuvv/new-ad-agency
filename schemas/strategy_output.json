@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "segments": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Segments",
+      "type": "array"
+    },
+    "themes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Themes",
+      "type": "array"
+    },
+    "channel_mix": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Channel Mix",
+      "type": "object"
+    }
+  },
+  "required": [
+    "segments",
+    "themes",
+    "channel_mix"
+  ],
+  "title": "StrategyOutput",
+  "type": "object"
+}

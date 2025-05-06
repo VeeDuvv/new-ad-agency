@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "Subtask": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "deliverable": {
+          "title": "Deliverable",
+          "type": "string"
+        },
+        "time_estimate": {
+          "title": "Time Estimate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "role",
+        "tools",
+        "deliverable",
+        "time_estimate"
+      ],
+      "title": "Subtask",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "subtasks": {
+      "items": {
+        "$ref": "#/$defs/Subtask"
+      },
+      "title": "Subtasks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "subtasks"
+  ],
+  "title": "MicroDecompOutput",
+  "type": "object"
+}

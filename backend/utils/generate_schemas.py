@@ -8,15 +8,14 @@ They will be emitted to the `schemas/` folder.
 """
 
 import os, json
-from backend.schemas.models import (
-    IntakeInput, IntakeOutput,
-    StrategyInput, StrategyOutput,
-    FuncArchInput, FuncArchOutput,
-    MicroDecompInput, MicroDecompOutput,
-    ExecuteInput, ExecuteOutput,
-    APICallerInput, APICallerOutput,
-    ReportingInput, ReportingOutput
-)
+
+from backend.schemas.models import IntakeInput, IntakeOutput
+from backend.schemas.models import StrategyInput, StrategyOutput
+from backend.schemas.models import FuncArchInput, FuncArchOutput
+from backend.schemas.models import MicroDecompInput, MicroDecompOutput
+from backend.schemas.models import ExecuteInput, ExecuteOutput
+from backend.schemas.models import APICallerInput, APICallerOutput
+from backend.schemas.models import ReportingInput, ReportingOutput
 
 SCHEMAS = {
     "intake_input.json":    IntakeInput,

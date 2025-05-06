@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "client_brief": {
+      "title": "Client Brief",
+      "type": "string"
+    },
+    "goals": {
+      "title": "Goals",
+      "type": "string"
+    },
+    "budget": {
+      "title": "Budget",
+      "type": "number"
+    },
+    "KPIs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Kpis",
+      "type": "array"
+    },
+    "campaign_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Campaign Id"
+    }
+  },
+  "required": [
+    "client_brief",
+    "goals",
+    "budget",
+    "KPIs",
+    "campaign_id"
+  ],
+  "title": "IntakeInput",
+  "type": "object"
+}

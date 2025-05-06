@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "campaign_spec": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Campaign Spec",
+      "type": "object"
+    }
+  },
+  "required": [
+    "campaign_spec"
+  ],
+  "title": "StrategyInput",
+  "type": "object"
+}

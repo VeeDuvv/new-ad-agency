@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "ReportKPIs": {
+      "properties": {
+        "total_tasks": {
+          "title": "Total Tasks",
+          "type": "integer"
+        },
+        "successful": {
+          "title": "Successful",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_tasks",
+        "successful",
+        "failed"
+      ],
+      "title": "ReportKPIs",
+      "type": "object"
+    },
+    "ReportingDetails": {
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "KPIs": {
+          "$ref": "#/$defs/ReportKPIs"
+        },
+        "tools_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools Used",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "KPIs",
+        "tools_used"
+      ],
+      "title": "ReportingDetails",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "report": {
+      "$ref": "#/$defs/ReportingDetails"
+    }
+  },
+  "required": [
+    "report"
+  ],
+  "title": "ReportingOutput",
+  "type": "object"
+}

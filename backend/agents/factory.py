@@ -15,7 +15,7 @@
 import yaml, importlib
 import os
 import logging
-logger = logging.getLogger("blueprint_maker.func_decomp")
+logger = logging.getLogger("blueprint_maker.factory")
 
 from backend.agents.base import Agent
 # Compute the registry path next to this file

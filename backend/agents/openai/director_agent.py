@@ -85,25 +85,34 @@ class DirectorAgent(Agent):
 
 
 
-        # Before BlueprintAgent
-        errs = audit.run({"phase": "input", "agent": "blueprint","payload": strategy})["errors"]
-        if errs:
-            logger.error(f"Input errors: {errs}")
-            raise RuntimeError(f"Blueprint input invalid: {errs}")
-        
+        # ——— 3) Blueprint (L0–L4) ———
 
-        # 3) Blueprint (L0–L4)
-        blueprint = get_agent("decomp").run({
+        # Build the exact payload our FuncArchAgent (key="decomp") expects:
+        blueprint_input = {
             "function_name": strategy.get("strategy_name", "Campaign Execution"),
-            "framework": strategy.get("framework", "APQC")
-        })
+            "framework":     strategy.get("framework",     "APQC")
+        }
 
-        # After BlueprintAgent returns:
-        errs = audit.run({"phase": "output","agent": "blueprint","payload": blueprint})["errors"]
+        # Audit the input _after_ we’ve constructed it
+        errs = audit.run({
+            "phase":   "input",
+            "agent":   "decomp",
+            "payload": blueprint_input    # <-- make sure this is blueprint_input
+        })["errors"]
         if errs:
-            logger.error(f"Output errors: {errs}")
-            raise RuntimeError(f"Blueprint output invalid: {errs}")
+            raise RuntimeError(f"Blueprint input invalid: {errs}")
 
+        # Now call the agent with that same dict
+        blueprint = get_agent("decomp").run(blueprint_input)
+
+        # Audit its output
+        errs = audit.run({
+            "phase":   "output",
+            "agent":   "decomp",
+            "payload": blueprint
+        })["errors"]
+        if errs:
+            raise RuntimeError(f"Blueprint output invalid: {errs}")
 
 
 

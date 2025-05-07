@@ -155,9 +155,27 @@ class DirectorAgent(Agent):
         # Finally, attach all executions to the campaign package
         campaign_package["execution"] = execution_results
 
-        _audit_or_raise("input", "report", execution_results)
-        report = get_agent("report").run({"campaign_id": campaign_id, "executions": execution_results})["report"]
-        _audit_or_raise("output", "report", report)
+        # assuming execution_results is a list of run-dicts like you showed above
+        step_names = [ r["subtask"]["name"] for r in execution_results ]
+
+        single_exec = {
+            "status":        "success",
+            "steps_executed": step_names,
+            "details":       { "runs": execution_results }
+        }
+
+        report_input = {
+            "campaign_id": campaign_id,
+            "executions": [ single_exec ]
+        }
+        import json, pprint
+
+
+        print("🔍 REPORT PAYLOAD:") 
+        pprint.pprint(report_input, width=120)
+        _audit_or_raise("input", "report", report_input)
+        report_output = get_agent("report").run(report_input)["report"]
+        _audit_or_raise("output", "report", report_output)
 
         # 7) Package everything
         campaign_package = {
@@ -167,7 +185,7 @@ class DirectorAgent(Agent):
             "blueprint":       blueprint,
             "executions":      micro_results,
             "real_executions": execution_results,
-            "report":          report
+            "report":          report_output
         }
 
         return {"campaign_package": campaign_package}

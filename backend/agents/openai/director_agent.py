@@ -159,22 +159,24 @@ class DirectorAgent(Agent):
         step_names = [ r["subtask"]["name"] for r in execution_results ]
 
         single_exec = {
-            "status":        "success",
-            "steps_executed": step_names,
-            "details":       { "runs": execution_results }
+            "status": "success",
+            "details": {
+            "steps_executed": step_names
+            # You might still want to include your runs data:
+            # "runs": execution_results
+            }
         }
-
         report_input = {
             "campaign_id": campaign_id,
             "executions": [ single_exec ]
         }
-        import json, pprint
-
-
-        print("🔍 REPORT PAYLOAD:") 
-        pprint.pprint(report_input, width=120)
+        
         _audit_or_raise("input", "report", report_input)
-        report_output = get_agent("report").run(report_input)["report"]
+        report_output = get_agent("report").run(report_input)
+        print("DEBUG: Actual report_output from ReportingAgent:") # ADD THIS
+        import json                                              # ADD THIS
+        print(json.dumps(report_output, indent=2))               # ADD THIS
+
         _audit_or_raise("output", "report", report_output)
 
         # 7) Package everything

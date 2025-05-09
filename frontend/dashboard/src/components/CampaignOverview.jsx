@@ -12,76 +12,201 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { campaignService, analyticsService } from "../services/api";
 
 const CampaignOverview = () => {
-  // Sample data (will be replaced with API calls later)
   const [metrics, setMetrics] = useState({
-    activeCampaigns: 5,
-    completedCampaigns: 12,
-    totalImpressions: 2450000,
-    totalClicks: 87500,
-    averageCTR: 3.57,
-    totalConversions: 4320,
+    activeCampaigns: 0,
+    completedCampaigns: 0,
+    totalImpressions: 0,
+    totalClicks: 0,
+    averageCTR: 0,
+    totalConversions: 0,
   });
 
-  const [campaigns, setCampaigns] = useState([
-    {
-      id: "cam_1",
-      name: "Summer Promotion 2025",
-      client: "SunFun Co.",
-      status: "active",
-      impressions: 750000,
-      clicks: 32000,
-      ctr: 4.27,
-    },
-    {
-      id: "cam_2",
-      name: "Product Launch X200",
-      client: "TechGiant",
-      status: "active",
-      impressions: 500000,
-      clicks: 18500,
-      ctr: 3.7,
-    },
-    {
-      id: "cam_3",
-      name: "Fall Collection Preview",
-      client: "Fashion Forward",
-      status: "planning",
-      impressions: 0,
-      clicks: 0,
-      ctr: 0,
-    },
-    {
-      id: "cam_4",
-      name: "Holiday Season Special",
-      client: "Gifty",
-      status: "planning",
-      impressions: 0,
-      clicks: 0,
-      ctr: 0,
-    },
-    {
-      id: "cam_5",
-      name: "Back to School",
-      client: "EduSupplies",
-      status: "active",
-      impressions: 1200000,
-      clicks: 37000,
-      ctr: 3.08,
-    },
-  ]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [performanceData, setPerformanceData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const performanceData = [
-    { name: "Week 1", impressions: 450000, clicks: 15750, conversions: 810 },
-    { name: "Week 2", impressions: 520000, clicks: 18200, conversions: 940 },
-    { name: "Week 3", impressions: 680000, clicks: 23800, conversions: 1230 },
-    { name: "Week 4", impressions: 800000, clicks: 29750, conversions: 1340 },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch overview metrics and campaigns in parallel
+        const [metricsData, campaignsData, performanceData] = await Promise.all(
+          [
+            analyticsService.getOverviewMetrics(),
+            campaignService.getAllCampaigns(),
+            analyticsService.getTimeSeriesData(
+              "campaign_performance",
+              "weekly"
+            ),
+          ]
+        );
+
+        setMetrics(metricsData);
+        setCampaigns(campaignsData);
+        setPerformanceData(performanceData);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+        setError("Failed to load dashboard data. Please try again later.");
+
+        // Set fallback demo data if API fails
+        setMetrics({
+          activeCampaigns: 5,
+          completedCampaigns: 12,
+          totalImpressions: 2450000,
+          totalClicks: 87500,
+          averageCTR: 3.57,
+          totalConversions: 4320,
+        });
+
+        setCampaigns([
+          {
+            id: "cam_1",
+            name: "Summer Promotion 2025",
+            client: "SunFun Co.",
+            status: "active",
+            impressions: 750000,
+            clicks: 32000,
+            ctr: 4.27,
+          },
+          {
+            id: "cam_2",
+            name: "Product Launch X200",
+            client: "TechGiant",
+            status: "active",
+            impressions: 500000,
+            clicks: 18500,
+            ctr: 3.7,
+          },
+          {
+            id: "cam_3",
+            name: "Fall Collection Preview",
+            client: "Fashion Forward",
+            status: "planning",
+            impressions: 0,
+            clicks: 0,
+            ctr: 0,
+          },
+          {
+            id: "cam_4",
+            name: "Holiday Season Special",
+            client: "Gifty",
+            status: "planning",
+            impressions: 0,
+            clicks: 0,
+            ctr: 0,
+          },
+          {
+            id: "cam_5",
+            name: "Back to School",
+            client: "EduSupplies",
+            status: "active",
+            impressions: 1200000,
+            clicks: 37000,
+            ctr: 3.08,
+          },
+        ]);
+
+        setPerformanceData([
+          {
+            name: "Week 1",
+            impressions: 450000,
+            clicks: 15750,
+            conversions: 810,
+          },
+          {
+            name: "Week 2",
+            impressions: 520000,
+            clicks: 18200,
+            conversions: 940,
+          },
+          {
+            name: "Week 3",
+            impressions: 680000,
+            clicks: 23800,
+            conversions: 1230,
+          },
+          {
+            name: "Week 4",
+            impressions: 800000,
+            clicks: 29750,
+            conversions: 1340,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    // Set up polling every 30 seconds
+    const intervalId = setInterval(fetchData, 30000);
+
+    // Clean up on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Handle creating a new campaign
+  const handleCreateCampaign = () => {
+    // You could implement a modal or navigation to a campaign creation form
+    alert("Create campaign functionality will be implemented here");
+  };
+
+  // Handle viewing a campaign
+  const handleViewCampaign = (campaignId) => {
+    // You could implement navigation to campaign details page
+    alert(`View campaign ${campaignId}`);
+  };
+
+  // Handle editing a campaign
+  const handleEditCampaign = (campaignId) => {
+    // You could implement a modal or navigation to campaign edit form
+    alert(`Edit campaign ${campaignId}`);
+  };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold mb-6">Campaign Overview</h2>
+
+      {loading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+          <span className="ml-4 text-gray-600">Loading dashboard data...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-xs text-red-500">
+                Using demo data for display.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Key metrics section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -172,7 +297,9 @@ const CampaignOverview = () => {
           <h3 className="text-lg font-medium text-gray-900">
             Active Campaigns
           </h3>
-          <button className="btn-primary">New Campaign</button>
+          <button className="btn-primary" onClick={handleCreateCampaign}>
+            New Campaign
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -255,15 +382,31 @@ const CampaignOverview = () => {
                     {campaign.ctr > 0 ? `${campaign.ctr}%` : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button className="text-primary-600 hover:text-primary-900 mr-3">
+                    <button
+                      className="text-primary-600 hover:text-primary-900 mr-3"
+                      onClick={() => handleViewCampaign(campaign.id)}
+                    >
                       View
                     </button>
-                    <button className="text-secondary-600 hover:text-secondary-900">
+                    <button
+                      className="text-secondary-600 hover:text-secondary-900"
+                      onClick={() => handleEditCampaign(campaign.id)}
+                    >
                       Edit
                     </button>
                   </td>
                 </tr>
               ))}
+              {campaigns.length === 0 && !loading && (
+                <tr>
+                  <td
+                    colSpan="7"
+                    className="px-6 py-4 text-center text-sm text-gray-500"
+                  >
+                    No campaigns found. Click "New Campaign" to create one.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

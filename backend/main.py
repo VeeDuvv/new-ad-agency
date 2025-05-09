@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from backend.agents.factory import get_agent
 from datetime import datetime, timedelta
+from starlette.responses import FileResponse
 
 import uvicorn
 
@@ -203,17 +204,22 @@ agents_data = [
 ]
 
 
-# Serve the dashboard frontend
+# In backend/main.py
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Serve the dashboard index.html file
 @app.get("/dashboard", tags=["UI"])
 @app.get("/dashboard/{rest_of_path:path}", tags=["UI"])
 async def serve_dashboard(rest_of_path: str = ""):
-    """
-    Serve the React dashboard app, handling all routes through React Router.
-    """
     return FileResponse("frontend/dashboard/index.html")
 
-# Static assets for dashboard
-app.mount("/dashboard-assets", StaticFiles(directory="frontend/dashboard/static"), name="dashboard-assets")
+# Serve static files with the correct path
+app.mount("/dashboard", StaticFiles(directory="frontend/dashboard"), name="dashboard-assets")
+
+# If you have a generic mount for "/", make sure it comes AFTER the dashboard-specific routes
+# app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 # EXISTING AGENT ENDPOINT
 @app.post("/api/agent")

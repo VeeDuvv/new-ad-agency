@@ -4,6 +4,10 @@ venv/
 
 # Environment files
 .env
+.env.*
+.env.production
+.env.development
+.env.test
 
 # VSCode
 .vscode/

@@ -27,13 +27,99 @@ from dotenv import load_dotenv
 from backend.agents.factory import get_agent
 from datetime import datetime, timedelta
 from starlette.responses import FileResponse
-from fastapi import Fast
+from fastapi import FastAPI
 import uvicorn
 
 load_dotenv()  # load OPENAI_API_KEY
 
 app = FastAPI(title="AI-Native Ad Agency API")
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from starlette.responses import PlainTextResponse
+import os
 
+@app.get("/debug-content")
+async def debug_content():
+    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
+    manifest_path = "frontend/dashboard/manifest.json"
+    
+    js_content = ""
+    manifest_content = ""
+    
+    try:
+        with open(js_path, "r") as f:
+            js_content = f.read(100)  # First 100 characters
+    except Exception as e:
+        js_content = f"Error: {str(e)}"
+        
+    try:
+        with open(manifest_path, "r") as f:
+            manifest_content = f.read(100)  # First 100 characters
+    except Exception as e:
+        manifest_content = f"Error: {str(e)}"
+    
+    result = f"JS file first 100 chars: {js_content}\n\n"
+    result += f"Manifest file first 100 chars: {manifest_content}\n"
+    
+    return PlainTextResponse(result)
+
+# Debug route to check what files exist
+@app.get("/debug-files")
+async def debug_files():
+    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
+    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
+    manifest_path = "frontend/dashboard/manifest.json"
+    
+    result = f"JS file exists: {os.path.exists(js_path)}\n"
+    result += f"CSS file exists: {os.path.exists(css_path)}\n"
+    result += f"Manifest file exists: {os.path.exists(manifest_path)}\n"
+    
+    return PlainTextResponse(result)
+
+# Remove any existing dashboard/static mounts or routes first
+
+# Add these imports if not already present
+from fastapi.middleware.cors import CORSMiddleware
+import mimetypes
+
+# Ensure MIME types are registered
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('application/json', '.json')
+
+# Add explicit file serving routes
+@app.get("/dashboard")
+@app.get("/dashboard/{catchall:path}")
+async def serve_dashboard(catchall: str = ""):
+    # Always serve index.html for any /dashboard route
+    return FileResponse("frontend/dashboard/index.html")
+
+# Binary file endpoints - these must come BEFORE the catchall route
+@app.get("/dashboard/static/js/{filename:path}")
+async def serve_js(filename: str):
+    filepath = f"frontend/dashboard/static/js/{filename}"
+    if os.path.exists(filepath):
+        return FileResponse(filepath, media_type="application/javascript")
+    return PlainTextResponse(f"JS file not found: {filepath}", status_code=404)
+
+@app.get("/dashboard/static/css/{filename:path}")
+async def serve_css(filename: str):
+    filepath = f"frontend/dashboard/static/css/{filename}"
+    if os.path.exists(filepath):
+        return FileResponse(filepath, media_type="text/css")
+    return PlainTextResponse(f"CSS file not found: {filepath}", status_code=404)
+
+@app.get("/dashboard/manifest.json")
+async def serve_manifest():
+    return FileResponse("frontend/dashboard/manifest.json", media_type="application/json")
+
+@app.get("/dashboard/favicon.ico")
+async def serve_favicon():
+    return FileResponse("frontend/dashboard/favicon.ico", media_type="image/x-icon")
+
+# Only AFTER these specific routes, add any catch-all mount for other static files
+# app.mount("/", StaticFiles(directory="frontend"), name="frontend")
+    
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,

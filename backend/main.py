@@ -38,44 +38,6 @@ from fastapi.responses import FileResponse
 from starlette.responses import PlainTextResponse
 import os
 
-@app.get("/debug-content")
-async def debug_content():
-    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
-    manifest_path = "frontend/dashboard/manifest.json"
-    
-    js_content = ""
-    manifest_content = ""
-    
-    try:
-        with open(js_path, "r") as f:
-            js_content = f.read(100)  # First 100 characters
-    except Exception as e:
-        js_content = f"Error: {str(e)}"
-        
-    try:
-        with open(manifest_path, "r") as f:
-            manifest_content = f.read(100)  # First 100 characters
-    except Exception as e:
-        manifest_content = f"Error: {str(e)}"
-    
-    result = f"JS file first 100 chars: {js_content}\n\n"
-    result += f"Manifest file first 100 chars: {manifest_content}\n"
-    
-    return PlainTextResponse(result)
-
-# Debug route to check what files exist
-@app.get("/debug-files")
-async def debug_files():
-    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
-    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
-    manifest_path = "frontend/dashboard/manifest.json"
-    
-    result = f"JS file exists: {os.path.exists(js_path)}\n"
-    result += f"CSS file exists: {os.path.exists(css_path)}\n"
-    result += f"Manifest file exists: {os.path.exists(manifest_path)}\n"
-    
-    return PlainTextResponse(result)
-
 # Remove any existing dashboard/static mounts or routes first
 
 # Add these imports if not already present
@@ -262,6 +224,79 @@ agents_data = [
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
+
+@app.get("/test-js")
+async def test_js():
+    """Direct test of JS file serving"""
+    filepath = "frontend/dashboard/static/js/main.57298cf5.js"
+    response = FileResponse(filepath)
+    response.headers["Content-Type"] = "application/javascript"
+    return response
+
+@app.get("/debug-content-detailed")
+async def debug_content_detailed():
+    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
+    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
+    manifest_path = "frontend/dashboard/manifest.json"
+    index_path = "frontend/dashboard/index.html"
+    
+    result = ""
+    
+    # Check content types
+    result += f"JS file MIME type: {mimetypes.guess_type(js_path)[0]}\n"
+    result += f"CSS file MIME type: {mimetypes.guess_type(css_path)[0]}\n"
+    result += f"Manifest file MIME type: {mimetypes.guess_type(manifest_path)[0]}\n\n"
+    
+    # Sample the file content more carefully
+    for path, name in [(js_path, "JS"), (css_path, "CSS"), (manifest_path, "Manifest"), (index_path, "Index HTML")]:
+        try:
+            with open(path, "r") as f:
+                content = f.read(200)  # First 200 characters
+                escaped_content = repr(content)  # Use repr to see raw content
+                result += f"{name} file first 200 chars (raw): {escaped_content}\n\n"
+        except Exception as e:
+            result += f"Error reading {name} file: {str(e)}\n\n"
+    
+    return PlainTextResponse(result)
+
+@app.get("/debug-content")
+async def debug_content():
+    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
+    manifest_path = "frontend/dashboard/manifest.json"
+    
+    js_content = ""
+    manifest_content = ""
+    
+    try:
+        with open(js_path, "r") as f:
+            js_content = f.read(100)  # First 100 characters
+    except Exception as e:
+        js_content = f"Error: {str(e)}"
+        
+    try:
+        with open(manifest_path, "r") as f:
+            manifest_content = f.read(100)  # First 100 characters
+    except Exception as e:
+        manifest_content = f"Error: {str(e)}"
+    
+    result = f"JS file first 100 chars: {js_content}\n\n"
+    result += f"Manifest file first 100 chars: {manifest_content}\n"
+    
+    return PlainTextResponse(result)
+
+# Debug route to check what files exist
+@app.get("/debug-files")
+async def debug_files():
+    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
+    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
+    manifest_path = "frontend/dashboard/manifest.json"
+    
+    result = f"JS file exists: {os.path.exists(js_path)}\n"
+    result += f"CSS file exists: {os.path.exists(css_path)}\n"
+    result += f"Manifest file exists: {os.path.exists(manifest_path)}\n"
+    
+    return PlainTextResponse(result)
+
 # EXISTING AGENT ENDPOINT
 @app.post("/api/agent")
 def call_agent(req: AgentRequest):
@@ -365,11 +400,13 @@ async def serve_dashboard(rest_of_path: str = ""):
 # Explicitly handle static asset files
 @app.get("/dashboard/static/js/{filename:path}")
 async def serve_js(filename: str):
-    return FileResponse(f"frontend/dashboard/static/js/{filename}", media_type="application/javascript")
+    filepath = os.path.abspath(f"frontend/dashboard/static/js/{filename}")
+    return FileResponse(filepath, media_type="application/javascript")
 
 @app.get("/dashboard/static/css/{filename:path}")
 async def serve_css(filename: str):
-    return FileResponse(f"frontend/dashboard/static/css/{filename}", media_type="text/css")
+    filepath = os.path.abspath(f"frontend/dashboard/static/css/{filename}")
+    return FileResponse(filepath, media_type="text/css")
 
 @app.get("/dashboard/manifest.json")
 async def serve_manifest():

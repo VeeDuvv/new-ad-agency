@@ -87,38 +87,6 @@ mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('application/javascript', '.js')
 mimetypes.add_type('application/json', '.json')
 
-# Add explicit file serving routes
-@app.get("/dashboard")
-@app.get("/dashboard/{catchall:path}")
-async def serve_dashboard(catchall: str = ""):
-    # Always serve index.html for any /dashboard route
-    return FileResponse("frontend/dashboard/index.html")
-
-# Binary file endpoints - these must come BEFORE the catchall route
-@app.get("/dashboard/static/js/{filename:path}")
-async def serve_js(filename: str):
-    filepath = f"frontend/dashboard/static/js/{filename}"
-    if os.path.exists(filepath):
-        return FileResponse(filepath, media_type="application/javascript")
-    return PlainTextResponse(f"JS file not found: {filepath}", status_code=404)
-
-@app.get("/dashboard/static/css/{filename:path}")
-async def serve_css(filename: str):
-    filepath = f"frontend/dashboard/static/css/{filename}"
-    if os.path.exists(filepath):
-        return FileResponse(filepath, media_type="text/css")
-    return PlainTextResponse(f"CSS file not found: {filepath}", status_code=404)
-
-@app.get("/dashboard/manifest.json")
-async def serve_manifest():
-    return FileResponse("frontend/dashboard/manifest.json", media_type="application/json")
-
-@app.get("/dashboard/favicon.ico")
-async def serve_favicon():
-    return FileResponse("frontend/dashboard/favicon.ico", media_type="image/x-icon")
-
-# Only AFTER these specific routes, add any catch-all mount for other static files
-# app.mount("/", StaticFiles(directory="frontend"), name="frontend")
     
 # Enable CORS
 app.add_middleware(
@@ -294,23 +262,9 @@ agents_data = [
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
-
-# Serve the dashboard index.html file
-@app.get("/dashboard", tags=["UI"])
-@app.get("/dashboard/{rest_of_path:path}", tags=["UI"])
-async def serve_dashboard(rest_of_path: str = ""):
-    return FileResponse("frontend/dashboard/index.html")
-
-# Serve static files with the correct path
-app.mount("/dashboard", StaticFiles(directory="frontend/dashboard"), name="dashboard-assets")
-
-# If you have a generic mount for "/", make sure it comes AFTER the dashboard-specific routes
-# app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
-
 # EXISTING AGENT ENDPOINT
 @app.post("/api/agent")
 def call_agent(req: AgentRequest):
-    # logger.debug("Received /api/agent request: agent=%s payload=%s", req.agent, req.payload)
     try:
         agent = get_agent(req.agent)
     except KeyError:
@@ -319,7 +273,6 @@ def call_agent(req: AgentRequest):
 
     try:
         result = agent.run(req.payload)
-        # logger.debug("Agent %s returned: %s", req.agent, result)
     except Exception as e:
         logger.exception("Agent %s raised exception", req.agent)
         raise HTTPException(status_code=500, detail=str(e))
@@ -402,13 +355,33 @@ def get_timeseries_data(metric: str, period: str = Query("weekly", description="
     
     return []  # Return empty data for unknown periods
 
-# ——— Static files (UI) ———
-# Serve existing Blueprint Maker frontend
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+# ——— Dashboard Static Files ———
+@app.get("/dashboard", tags=["UI"])
+@app.get("/dashboard/{rest_of_path:path}", tags=["UI"])
+async def serve_dashboard(rest_of_path: str = ""):
+    """Serve the React dashboard app, handling all routes through React Router."""
+    return FileResponse("frontend/dashboard/index.html")
 
-# Serve new Dashboard frontend (after it's built)
-# Uncomment this when your React dashboard is built
-# app.mount("/dashboard", StaticFiles(directory="frontend/dashboard", html=True), name="dashboard")
+# Explicitly handle static asset files
+@app.get("/dashboard/static/js/{filename:path}")
+async def serve_js(filename: str):
+    return FileResponse(f"frontend/dashboard/static/js/{filename}", media_type="application/javascript")
+
+@app.get("/dashboard/static/css/{filename:path}")
+async def serve_css(filename: str):
+    return FileResponse(f"frontend/dashboard/static/css/{filename}", media_type="text/css")
+
+@app.get("/dashboard/manifest.json")
+async def serve_manifest():
+    return FileResponse("frontend/dashboard/manifest.json", media_type="application/json")
+
+@app.get("/dashboard/favicon.ico")
+async def serve_favicon():
+    return FileResponse("frontend/dashboard/favicon.ico", media_type="image/x-icon")
+
+# ——— Blueprint Maker Static Files (MUST BE LAST) ———
+# After all specific routes, mount the frontend directory for Blueprint Maker
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 # ——— Run server (dev only) ———
 if __name__ == "__main__":

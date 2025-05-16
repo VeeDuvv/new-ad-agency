@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- SPDX-License-Identifier: MIT -->
+    <!-- Copyright (c) 2025 Vamsi Duvvuri -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Native Ad Agency Dashboard</title>
+    <style>
+        /* CSS Variables for theming */
+        :root {
+            --primary-color: #0284c7;
+            --primary-dark: #0369a1;
+            --primary-light: #bae6fd;
+            --secondary-color: #8b5cf6;
+            --secondary-dark: #6d28d9;
+            --gray-light: #f3f4f6;
+            --gray: #e5e7eb;
+            --gray-dark: #9ca3af;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --white: #ffffff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--gray-light);
+            color: var(--text-dark);
+            line-height: 1.5;
+        }
+
+        /* Layout */
+        .dashboard {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        /* Navigation */
+        nav {
+            background-color: var(--white);
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .nav-tabs {
+            display: flex;
+            list-style: none;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .nav-tabs li {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-tabs li.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .nav-tabs li.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--primary-color);
+        }
+
+        .nav-tabs li:hover:not(.active) {
+            background-color: var(--gray-light);
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Tabs Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--white);
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Metrics Cards */
+        .metric-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        th {
+            background-color: var(--gray-light);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: var(--gray-light);
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-planning {
+            background-color: #fef9c3;
+            color: #854d0e;
+        }
+
+        .badge-completed {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        /* Charts Placeholder */
+        .chart-container {
+            height: 300px;
+            margin: 1rem 0;
+            background-color: var(--gray-light);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Error Styles */
+        .error-message {
+            background-color: #fee2e2;
+            border-left: 4px solid var(--error);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #b91c1c;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+
+            .nav-tabs li {
+                padding: 0.75rem 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <header>
+            <div class="header-content">
+                <div class="logo">AI-Native Ad Agency</div>
+                <div>
+                    <span>Welcome, Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <nav>
+            <ul class="nav-tabs">
+                <li class="active" data-tab="campaigns">Campaign Overview</li>
+                <li data-tab="agents">Agent Workspace</li>
+                <li data-tab="analytics">Analytics Hub</li>
+                <li data-tab="blueprint">Blueprint Maker</li>
+            </ul>
+        </nav>
+
+        <div class="main-content">
+            <!-- Campaign Overview Tab -->
+            <div id="campaigns" class="tab-content active">
+                <h2>Campaign Overview</h2>
+
+                <!-- Metrics Cards -->
+                <div class="grid" id="campaign-metrics">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="active-campaigns">-</div>
+                        <div class="metric-label">Active Campaigns</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="total-impressions">-</div>
+                        <div class="metric-label">Total Impressions</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="total-clicks">-</div>
+                        <div class="metric-label">Total Clicks</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="average-ctr">-</div>
+                        <div class="metric-label">Average CTR</div>
+                    </div>
+                </div>
+
+                <!-- Campaign Chart -->
+                <div class="card">
+                    <div class="card-title">Performance Trends</div>
+                    <div class="chart-container" id="performance-chart">
+                        <div>Chart will be displayed here</div>
+                    </div>
+                </div>
+
+                <!-- Campaigns Table -->
+                <div class="card">
+                    <div class="card-title">Active Campaigns</div>
+                    <div class="table-container" id="campaigns-table">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Workspace Tab -->
+            <div id="agents" class="tab-content">
+                <h2>Agent Workspace</h2>
+
+                <!-- Agent Status Summary -->
+                <div class="grid">
+                    <div class="card metric-card">
+                        <div class="metric-value" id="total-agents">-</div>
+                        <div class="metric-label">Total Agents</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="active-agents">-</div>
+                        <div class="metric-label">Active Agents</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="completed-tasks">-</div>
+                        <div class="metric-label">Completed Tasks</div>
+                    </div>
+                    <div class="card metric-card">
+                        <div class="metric-value" id="avg-error-rate">-</div>
+                        <div class="metric-label">Avg. Error Rate</div>
+                    </div>
+                </div>
+
+                <!-- Agents Table -->
+                <div class="card">
+                    <div class="card-title">Agent Status</div>
+                    <div class="table-container" id="agents-table">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Logs -->
+                <div class="card">
+                    <div class="card-title">Agent Logs</div>
+                    <div id="agent-logs">
+                        <p>Select an agent to view logs.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Hub Tab -->
+            <div id="analytics" class="tab-content">
+                <h2>Analytics Hub</h2>
+
+                <!-- Analytics Controls -->
+                <div class="card">
+                    <div class="card-title">Analytics Controls</div>
+                    <div>
+                        <button class="btn btn-primary" id="period-weekly">Weekly</button>
+                        <button class="btn" id="period-monthly">Monthly</button>
+                    </div>
+                </div>
+
+                <!-- Performance Chart -->
+                <div class="card">
+                    <div class="card-title">Performance Metrics</div>
+                    <div class="chart-container" id="analytics-chart">
+                        <div>Chart will be displayed here</div>
+                    </div>
+                </div>
+
+                <!-- Analytics Data Table -->
+                <div class="card">
+                    <div class="card-title">Performance Data</div>
+                    <div class="table-container" id="analytics-table">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blueprint Maker Tab -->
+            <div id="blueprint" class="tab-content">
+                <h2>Blueprint Maker</h2>
+
+                <div class="card">
+                    <div class="card-title">Launch Blueprint Maker</div>
+                    <p>Create functional decompositions for advertising campaigns.</p>
+                    <a href="/" class="btn btn-primary" style="margin-top: 1rem;">Open Blueprint Maker</a>
+                </div>
+
+                <!-- Recent Blueprints Table (Placeholder) -->
+                <div class="card">
+                    <div class="card-title">Recent Blueprints</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Function Name</th>
+                                <th>Framework</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Creative Development</td>
+                                <td>APQC</td>
+                                <td>May 10, 2025</td>
+                                <td>
+                                    <button class="btn btn-primary">View</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Media Planning</td>
+                                <td>APQC</td>
+                                <td>May 8, 2025</td>
+                                <td>
+                                    <button class="btn btn-primary">View</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Campaign Analysis</td>
+                                <td>eTOM</td>
+                                <td>May 5, 2025</td>
+                                <td>
+                                    <button class="btn btn-primary">View</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SPDX-License-Identifier: MIT
+        // Copyright (c) 2025 Vamsi Duvvuri
+
+        // Navigation functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            // Tab navigation
+            const tabs = document.querySelectorAll('.nav-tabs li');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs
+                    tabs.forEach(t => t.classList.remove('active'));
+
+                    // Add active class to clicked tab
+                    tab.classList.add('active');
+
+                    // Show corresponding content
+                    const tabId = tab.getAttribute('data-tab');
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(tabId).classList.add('active');
+
+                    // Load data for the tab if needed
+                    if (tabId === 'campaigns') {
+                        loadCampaignData();
+                    } else if (tabId === 'agents') {
+                        loadAgentData();
+                    } else if (tabId === 'analytics') {
+                        loadAnalyticsData('weekly');
+                    }
+                });
+            });
+
+            // Period buttons for analytics
+            document.getElementById('period-weekly').addEventListener('click', function () {
+                // Toggle button styles
+                this.classList.add('btn-primary');
+                document.getElementById('period-monthly').classList.remove('btn-primary');
+
+                // Load weekly data
+                loadAnalyticsData('weekly');
+            });
+
+            document.getElementById('period-monthly').addEventListener('click', function () {
+                // Toggle button styles
+                this.classList.add('btn-primary');
+                document.getElementById('period-weekly').classList.remove('btn-primary');
+
+                // Load monthly data
+                loadAnalyticsData('monthly');
+            });
+
+            // Initial data load
+            loadCampaignData();
+        });
+
+        // Utility functions
+        function formatNumber(num) {
+            return num >= 1000000
+                ? (num / 1000000).toFixed(1) + 'M'
+                : num >= 1000
+                    ? (num / 1000).toFixed(1) + 'K'
+                    : num.toString();
+        }
+
+        function showError(message, elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        // API Endpoints
+        const API = {
+            campaigns: '/api/campaigns',
+            agents: '/api/agents',
+            agentLogs: (agentId) => `/api/agents/${agentId}/logs`,
+            overview: '/api/analytics/overview',
+            timeseries: (metric, period) => `/api/analytics/timeseries/${metric}?period=${period}`
+        };
+
+        // Campaign data loading
+        async function loadCampaignData() {
+            try {
+                // Fetch overview metrics
+                const overviewResponse = await fetch(API.overview);
+                if (!overviewResponse.ok) throw new Error('Failed to load overview data');
+                const overviewData = await overviewResponse.json();
+
+                // Update metrics cards
+                document.getElementById('active-campaigns').textContent = overviewData.activeCampaigns;
+                document.getElementById('total-impressions').textContent = formatNumber(overviewData.totalImpressions);
+                document.getElementById('total-clicks').textContent = formatNumber(overviewData.totalClicks);
+                document.getElementById('average-ctr').textContent = overviewData.averageCTR + '%';
+
+                // Fetch campaigns
+                const campaignsResponse = await fetch(API.campaigns);
+                if (!campaignsResponse.ok) throw new Error('Failed to load campaigns');
+                const campaigns = await campaignsResponse.json();
+
+                // Render campaigns table
+                renderCampaignsTable(campaigns);
+
+                // Load performance chart data
+                await loadPerformanceData();
+            } catch (error) {
+                console.error('Error loading campaign data:', error);
+                showError('Failed to load campaign data. Please try again later.', 'campaigns-table');
+            }
+        }
+
+        function renderCampaignsTable(campaigns) {
+            const tableContainer = document.getElementById('campaigns-table');
+
+            // Create table HTML
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Campaign</th>
+                            <th>Client</th>
+                            <th>Status</th>
+                            <th>Impressions</th>
+                            <th>Clicks</th>
+                            <th>CTR</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Add campaign rows
+            campaigns.forEach(campaign => {
+                const statusClass = campaign.status === 'active' ? 'badge-active' : 'badge-planning';
+
+                tableHtml += `
+                    <tr>
+                        <td>${campaign.name}</td>
+                        <td>${campaign.client}</td>
+                        <td><span class="badge ${statusClass}">${campaign.status}</span></td>
+                        <td>${campaign.impressions.toLocaleString()}</td>
+                        <td>${campaign.clicks.toLocaleString()}</td>
+                        <td>${campaign.ctr > 0 ? campaign.ctr + '%' : '-'}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="viewCampaign('${campaign.id}')">View</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+
+            tableContainer.innerHTML = tableHtml;
+        }
+
+        async function loadPerformanceData() {
+            try {
+                const response = await fetch(API.timeseries('campaign_performance', 'weekly'));
+                if (!response.ok) throw new Error('Failed to load performance data');
+                const data = await response.json();
+
+                // For now, just show placeholder message
+                // In a real implementation, this would render a chart using Chart.js or similar
+                document.getElementById('performance-chart').innerHTML = `
+                    <div>Performance data loaded for ${data.length} time periods</div>
+                `;
+            } catch (error) {
+                console.error('Error loading performance data:', error);
+                document.getElementById('performance-chart').innerHTML = `
+                    <div class="error-message">Failed to load performance data</div>
+                `;
+            }
+        }
+
+        // Agent data loading
+        async function loadAgentData() {
+            try {
+                const response = await fetch(API.agents);
+                if (!response.ok) throw new Error('Failed to load agent data');
+                const agents = await response.json();
+
+                // Update agent metrics
+                document.getElementById('total-agents').textContent = agents.length;
+                document.getElementById('active-agents').textContent = agents.filter(a => a.status === 'processing').length;
+
+                const totalTasks = agents.reduce((sum, agent) => sum + agent.tasksCompleted, 0);
+                document.getElementById('completed-tasks').textContent = totalTasks;
+
+                const avgErrorRate = agents.reduce((sum, agent) => sum + agent.errorRate, 0) / agents.length * 100;
+                document.getElementById('avg-error-rate').textContent = avgErrorRate.toFixed(2) + '%';
+
+                // Render agents table
+                renderAgentsTable(agents);
+            } catch (error) {
+                console.error('Error loading agent data:', error);
+                showError('Failed to load agent data. Please try again later.', 'agents-table');
+            }
+        }
+
+        function renderAgentsTable(agents) {
+            const tableContainer = document.getElementById('agents-table');
+
+            // Create table HTML
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Agent</th>
+                            <th>Status</th>
+                            <th>Tasks Completed</th>
+                            <th>Avg. Duration (s)</th>
+                            <th>Error Rate</th>
+                            <th>Last Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Add agent rows
+            agents.forEach(agent => {
+                const statusClass = agent.status === 'processing' ? 'badge-active' : '';
+                const lastActive = new Date(agent.lastActive).toLocaleString();
+
+                tableHtml += `
+                    <tr>
+                        <td>${agent.name}</td>
+                        <td><span class="badge ${statusClass}">${agent.status}</span></td>
+                        <td>${agent.tasksCompleted}</td>
+                        <td>${agent.avgDuration}</td>
+                        <td>${(agent.errorRate * 100).toFixed(2)}%</td>
+                        <td>${lastActive}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="viewAgentLogs('${agent.id}')">View Logs</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+
+            tableContainer.innerHTML = tableHtml;
+        }
+
+        // View agent logs
+        async function viewAgentLogs(agentId) {
+            const logsContainer = document.getElementById('agent-logs');
+            logsContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+            try {
+                const response = await fetch(API.agentLogs(agentId));
+                if (!response.ok) throw new Error('Failed to load agent logs');
+                const logs = await response.json();
+
+                // Render logs
+                let logsHtml = `<div style="max-height: 300px; overflow-y: auto;">`;
+
+                logs.forEach(log => {
+                    const timestamp = new Date(log.timestamp).toLocaleString();
+                    const levelClass = log.level === 'INFO'
+                        ? 'text-primary-color'
+                        : log.level === 'WARN'
+                            ? 'text-warning'
+                            : 'text-error';
+
+                    logsHtml += `
+                        <div style="padding: 0.5rem; border-bottom: 1px solid var(--gray);">
+                            <div style="font-size: 0.875rem; color: var(--text-light);">${timestamp}</div>
+                            <div style="color: ${levelClass};">[${log.level}] ${log.message}</div>
+                        </div>
+                    `;
+                });
+
+                logsHtml += `</div>`;
+                logsContainer.innerHTML = logsHtml;
+            } catch (error) {
+                console.error('Error loading agent logs:', error);
+                showError('Failed to load agent logs. Please try again later.', 'agent-logs');
+            }
+        }
+
+        // Analytics data loading
+        async function loadAnalyticsData(period) {
+            try {
+                const response = await fetch(API.timeseries('campaign_performance', period));
+                if (!response.ok) throw new Error('Failed to load analytics data');
+                const data = await response.json();
+
+                // Render analytics table
+                renderAnalyticsTable(data, period);
+
+                // Update chart placeholder
+                document.getElementById('analytics-chart').innerHTML = `
+                    <div>Analytics data loaded for ${period} periods</div>
+                `;
+            } catch (error) {
+                console.error('Error loading analytics data:', error);
+                showError('Failed to load analytics data. Please try again later.', 'analytics-table');
+            }
+        }
+
+        function renderAnalyticsTable(data, period) {
+            const tableContainer = document.getElementById('analytics-table');
+
+            // Create table HTML
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>${period === 'weekly' ? 'Week' : 'Month'}</th>
+                            <th>Impressions</th>
+                            <th>Clicks</th>
+                            <th>CTR</th>
+                            <th>Conversions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Add data rows
+            data.forEach(item => {
+                const ctr = item.clicks / item.impressions * 100;
+
+                tableHtml += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.impressions.toLocaleString()}</td>
+                        <td>${item.clicks.toLocaleString()}</td>
+                        <td>${ctr.toFixed(2)}%</td>
+                        <td>${item.conversions.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+
+            tableContainer.innerHTML = tableHtml;
+        }
+
+        // Campaign and agent view functions (placeholders)
+        function viewCampaign(campaignId) {
+            alert(`Viewing campaign ${campaignId}`);
+            // In a real implementation, this would navigate to a campaign details page
+        }
+    </script>
+</body>
+
+</html>

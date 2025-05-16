@@ -18,38 +18,29 @@ so now you can also get information about campaigns, agents, and analytics!"
 
 from typing import List, Optional
 import logging
+import os
+import mimetypes
+from datetime import datetime, timedelta
+
+# FastAPI imports
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Application-specific imports
 from dotenv import load_dotenv
 from backend.agents.factory import get_agent
-from datetime import datetime, timedelta
-from starlette.responses import FileResponse
-from fastapi import FastAPI
+
 import uvicorn
 
+# Load environment variables
 load_dotenv()  # load OPENAI_API_KEY
 
+# Initialize FastAPI app
 app = FastAPI(title="AI-Native Ad Agency API")
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from starlette.responses import PlainTextResponse
-import os
 
-# Remove any existing dashboard/static mounts or routes first
-
-# Add these imports if not already present
-from fastapi.middleware.cors import CORSMiddleware
-import mimetypes
-
-# Ensure MIME types are registered
-mimetypes.add_type('text/css', '.css')
-mimetypes.add_type('application/javascript', '.js')
-mimetypes.add_type('application/json', '.json')
-
-    
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
@@ -59,18 +50,24 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(name)s %(levelname)s %(message)s"
 )
 logger = logging.getLogger("ai_ad_agency")
 
-# EXISTING AGENT REQUEST MODEL
+# Ensure proper MIME types
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('application/json', '.json')
+
+# ========== MODEL DEFINITIONS ==========
+
 class AgentRequest(BaseModel):
     agent: str
     payload: dict
 
-# NEW MODELS FOR DASHBOARD API
 class Campaign(BaseModel):
     id: str
     name: str
@@ -103,8 +100,9 @@ class TimeSeriesPoint(BaseModel):
     clicks: int
     conversions: int
 
-# SAMPLE DATA FOR DASHBOARD
-# In a real implementation, this would come from a database
+# ========== SAMPLE DATA (REPLACE WITH DATABASE IN PRODUCTION) ==========
+
+# Sample campaign data
 campaigns = [
     {
         "id": "cam_1",
@@ -153,6 +151,7 @@ campaigns = [
     }
 ]
 
+# Sample agent data
 agents_data = [
     {
         "id": "intake_agent", 
@@ -219,85 +218,9 @@ agents_data = [
     }
 ]
 
+# ========== API ENDPOINTS ==========
 
-# In backend/main.py
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-import os
-
-@app.get("/test-js")
-async def test_js():
-    """Direct test of JS file serving"""
-    filepath = "frontend/dashboard/static/js/main.57298cf5.js"
-    response = FileResponse(filepath)
-    response.headers["Content-Type"] = "application/javascript"
-    return response
-
-@app.get("/debug-content-detailed")
-async def debug_content_detailed():
-    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
-    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
-    manifest_path = "frontend/dashboard/manifest.json"
-    index_path = "frontend/dashboard/index.html"
-    
-    result = ""
-    
-    # Check content types
-    result += f"JS file MIME type: {mimetypes.guess_type(js_path)[0]}\n"
-    result += f"CSS file MIME type: {mimetypes.guess_type(css_path)[0]}\n"
-    result += f"Manifest file MIME type: {mimetypes.guess_type(manifest_path)[0]}\n\n"
-    
-    # Sample the file content more carefully
-    for path, name in [(js_path, "JS"), (css_path, "CSS"), (manifest_path, "Manifest"), (index_path, "Index HTML")]:
-        try:
-            with open(path, "r") as f:
-                content = f.read(200)  # First 200 characters
-                escaped_content = repr(content)  # Use repr to see raw content
-                result += f"{name} file first 200 chars (raw): {escaped_content}\n\n"
-        except Exception as e:
-            result += f"Error reading {name} file: {str(e)}\n\n"
-    
-    return PlainTextResponse(result)
-
-@app.get("/debug-content")
-async def debug_content():
-    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
-    manifest_path = "frontend/dashboard/manifest.json"
-    
-    js_content = ""
-    manifest_content = ""
-    
-    try:
-        with open(js_path, "r") as f:
-            js_content = f.read(100)  # First 100 characters
-    except Exception as e:
-        js_content = f"Error: {str(e)}"
-        
-    try:
-        with open(manifest_path, "r") as f:
-            manifest_content = f.read(100)  # First 100 characters
-    except Exception as e:
-        manifest_content = f"Error: {str(e)}"
-    
-    result = f"JS file first 100 chars: {js_content}\n\n"
-    result += f"Manifest file first 100 chars: {manifest_content}\n"
-    
-    return PlainTextResponse(result)
-
-# Debug route to check what files exist
-@app.get("/debug-files")
-async def debug_files():
-    js_path = "frontend/dashboard/static/js/main.57298cf5.js"
-    css_path = "frontend/dashboard/static/css/main.97d65a9f.css"
-    manifest_path = "frontend/dashboard/manifest.json"
-    
-    result = f"JS file exists: {os.path.exists(js_path)}\n"
-    result += f"CSS file exists: {os.path.exists(css_path)}\n"
-    result += f"Manifest file exists: {os.path.exists(manifest_path)}\n"
-    
-    return PlainTextResponse(result)
-
-# EXISTING AGENT ENDPOINT
+# Agent endpoint
 @app.post("/api/agent")
 def call_agent(req: AgentRequest):
     try:
@@ -313,8 +236,6 @@ def call_agent(req: AgentRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"result": result}
-
-# NEW DASHBOARD API ENDPOINTS
 
 # Campaign related endpoints
 @app.get("/api/campaigns", response_model=List[Campaign])
@@ -390,36 +311,12 @@ def get_timeseries_data(metric: str, period: str = Query("weekly", description="
     
     return []  # Return empty data for unknown periods
 
-# ——— Dashboard Static Files ———
-@app.get("/dashboard", tags=["UI"])
-@app.get("/dashboard/{rest_of_path:path}", tags=["UI"])
-async def serve_dashboard(rest_of_path: str = ""):
-    """Serve the React dashboard app, handling all routes through React Router."""
-    return FileResponse("frontend/dashboard/index.html")
+# ========== STATIC FILE SERVING ==========
 
-# Explicitly handle static asset files
-@app.get("/dashboard/static/js/{filename:path}")
-async def serve_js(filename: str):
-    filepath = os.path.abspath(f"frontend/dashboard/static/js/{filename}")
-    return FileResponse(filepath, media_type="application/javascript")
-
-@app.get("/dashboard/static/css/{filename:path}")
-async def serve_css(filename: str):
-    filepath = os.path.abspath(f"frontend/dashboard/static/css/{filename}")
-    return FileResponse(filepath, media_type="text/css")
-
-@app.get("/dashboard/manifest.json")
-async def serve_manifest():
-    return FileResponse("frontend/dashboard/manifest.json", media_type="application/json")
-
-@app.get("/dashboard/favicon.ico")
-async def serve_favicon():
-    return FileResponse("frontend/dashboard/favicon.ico", media_type="image/x-icon")
-
-# ——— Blueprint Maker Static Files (MUST BE LAST) ———
-# After all specific routes, mount the frontend directory for Blueprint Maker
+# Serve the frontend directory (Blueprint Maker and dashboard)
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
-# ——— Run server (dev only) ———
+# ========== SERVER STARTUP ==========
+
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="127.0.0.1", port=5000, reload=True)

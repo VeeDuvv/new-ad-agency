@@ -35,11 +35,15 @@ from backend.agents.factory import get_agent
 
 import uvicorn
 
+from backend.observability.api import add_observability_endpoints
+from backend.observability.factory import create_workflow_monitor
+
 # Load environment variables
 load_dotenv()  # load OPENAI_API_KEY
 
 # Initialize FastAPI app
 app = FastAPI(title="AI-Native Ad Agency API")
+add_observability_endpoints(app)
 
 # Enable CORS
 app.add_middleware(

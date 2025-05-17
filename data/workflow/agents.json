@@ -1,0 +1,12 @@
+{
+  "intake_agent": {
+    "status": "idle",
+    "current_task": null,
+    "last_updated": "2025-05-16T04:32:49.090026"
+  },
+  "strategy_agent": {
+    "status": "idle",
+    "current_task": null,
+    "last_updated": "2025-05-16T04:32:50.099042"
+  }
+}

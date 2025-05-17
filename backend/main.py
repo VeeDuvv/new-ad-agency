@@ -18,7 +18,6 @@ so now you can also get information about campaigns, agents, and analytics!"
 
 from typing import List, Optional
 import logging
-import os
 import mimetypes
 from datetime import datetime, timedelta
 
@@ -37,6 +36,9 @@ import uvicorn
 
 from backend.observability.api import add_observability_endpoints
 from backend.observability.factory import create_workflow_monitor
+import os
+os.makedirs("data/workflow", exist_ok=True)
+os.makedirs("logs", exist_ok=True)
 
 # Load environment variables
 load_dotenv()  # load OPENAI_API_KEY
